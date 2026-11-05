@@ -1,0 +1,112 @@
+# HomeworkFlow
+
+A mobile-first homework time-management PWA for a student and a parent. The student plans,
+times and tracks assignments; a parent can see them and adjust planned time, and every change
+records who and when.
+
+**There is no server, database or account.** Like the MEDS app, it is a static site: all data
+lives in the browser's `localStorage` on each person's own device, and nothing is uploaded.
+A student's device and a parent's device share homework by passing small files.
+
+- Requirements: [`PRD.md`](./PRD.md) &nbsp;·&nbsp; Design: [`architecture.md`](./architecture.md)
+- Stack: Next.js 16 (static export), TypeScript, Tailwind CSS 4, Vitest
+
+## Try it
+
+```bash
+npm install
+```
+
+```bash
+NEXT_PUBLIC_DEMO_MODE=true npm run dev
+```
+
+Open http://localhost:3000. Demo mode loads **fictional** sample data (Alex and Jordan Sample)
+under its own storage key, with a banner and a "Parent view" button (no PIN needed in demo).
+
+Without `NEXT_PUBLIC_DEMO_MODE`, the first screen asks whose device it is:
+
+- **A student's device:** add homework, timer, daily plan. Optionally set a parent name and PIN
+  so a parent can open a **parent view** on the same device.
+- **A parent's device:** open the student's homework from a file, adjust time, send changes back.
+
+## How a parent sees and adjusts homework
+
+On a **shared device**, tap "Parent view", enter the PIN, adjust time. It applies immediately and
+closes when the tab closes.
+
+On **two devices**, by file (Share tab on both):
+
+1. Student: *Share my homework file* → send the file to the parent (message, email, AirDrop).
+2. Parent: *Open a homework file*. The dashboard shows the homework as of that file's date.
+3. Parent changes planned times, then *Send my changes to &lt;student&gt;* → send the file back.
+4. Student: *Open a changes file*. The new times apply automatically (no approve/reject), and the
+   history shows who changed what and when.
+
+Changes files are signed with a key that came inside the student's file, so only someone who
+has that file can produce one the student's app accepts, and edited files are rejected. If both
+sides changed the same time, the newest change wins and the older one is kept in history as
+"not applied". Treat the student's file as private: it holds all their data and the key.
+
+The same file is a **backup**: *Restore from a backup* puts it back on a fresh device. Clearing the
+browser's site data deletes everything unless you have saved one.
+
+## Scripts
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Dev server |
+| `npm run typecheck` / `npm run lint` | `tsc --noEmit` / ESLint |
+| `npm test` | Domain, data layer, sync (two simulated devices) and guard tests |
+| `npm run build` | Static export to `out/` |
+| `npm run check:privacy` | Fails if app code uses network APIs or external URLs |
+| `npm run check` | The whole gate in order |
+
+End-to-end browser test (manual, needs Playwright): see the header of `scripts/ui-smoke.cjs`.
+It drives two browser contexts as two devices and checks the file exchange, tamper rejection,
+offline use and that nothing leaves the origin.
+
+## Hosting (GitHub Pages)
+
+`npm run build` creates plain files in `out/`; any static host works. This repository publishes to
+GitHub Pages with `.github/workflows/pages.yml`, which is **manual only** (it never runs on push):
+
+1. Repository Settings, Pages, **Source: GitHub Actions** (once).
+2. Actions tab, "Deploy static app (manual)", **Run workflow**.
+3. The site appears at `https://<owner>.github.io/<repo>/`. The workflow sets
+   `NEXT_PUBLIC_BASE_PATH=/<repo>` for the build, so the app works under that sub-path.
+
+The workflow runs the privacy check, typecheck, lint and tests before building. Publishing is safe
+because the site contains no personal data: everything people enter stays in their own browser.
+
+Other hosts: Cloudflare Pages or Netlify work the same way (build command `npm run build`,
+output directory `out`). Serving locally needs `https` or `localhost`, because the PIN and file
+signatures use the browser's Web Crypto, which needs a secure context.
+
+To install: open the site on a phone and use "Add to Home Screen". Pages you have opened once
+also work offline.
+
+## Privacy and security
+
+- Stored on the device: first names, assignments, time data. No email, accounts, analytics or ads.
+- App code makes no network requests (checked by `check:privacy`); a Content-Security-Policy with
+  `connect-src 'self'` makes the browser enforce it in production builds.
+- Honest limits: the parent PIN is a **soft lock** (the hash is in the same browser storage, so
+  developer tools can bypass it); files are plain JSON, so send them over a channel you trust;
+  the timer uses the device's clock.
+
+## Layout
+
+```
+src/lib/domain/   pure logic: stages, dates, estimates, timer maths, daily plan
+src/lib/data/     state schema, LocalRepo, sync (files + signing), PIN, demo seed
+src/components, src/app   UI (static routes; assignment is /assignment?id=)
+public/           manifest, icons, service worker
+scripts/          check-privacy, icon generation, Playwright smoke test
+tests/            domain, data, sync, guard
+```
+
+## Known limitations
+
+Not real time (parent data is as of the last file). No notifications. Data lives only on the
+device. See `architecture.md` section 9 and `PRD.md` section 8 for open questions.

@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+/* Semantic colour tokens. Light by default, dark via the OS preference. */
+:root {
+  --bg: #f5f6fa;
+  --surface: #ffffff;
+  --surface-2: #eef0f6;
+  --text: #1b2033;
+  --muted: #5a6280;
+  --border: #d9dcea;
+  --brand: #4f46e5;
+  --brand-strong: #4338ca;
+  --brand-contrast: #ffffff;
+  --brand-soft: #e8e7fd;
+  --danger: #b42318;
+  --danger-soft: #fde8e6;
+  --warn: #8a5300;
+  --warn-soft: #fff1d6;
+  --ok: #17663a;
+  --ok-soft: #dcf5e6;
+  --ring: #4f46e5;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1220;
+    --surface: #181c2e;
+    --surface-2: #20253a;
+    --text: #eceffa;
+    --muted: #a3abc7;
+    --border: #2f3552;
+    --brand: #8b85ff;
+    --brand-strong: #a39eff;
+    --brand-contrast: #0f1220;
+    --brand-soft: #2a2859;
+    --danger: #ff9b90;
+    --danger-soft: #3d1c1c;
+    --warn: #ffcb7a;
+    --warn-soft: #3a2c10;
+    --ok: #7fe0a6;
+    --ok-soft: #14301f;
+    --ring: #a39eff;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-contrast: var(--brand-contrast);
+  --color-brand-soft: var(--brand-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html {
+  color-scheme: light dark;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

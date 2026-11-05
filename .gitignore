@@ -1,0 +1,22 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+build/
+next-env.d.ts
+*.tsbuildinfo
+
+# secrets: never commit. Only .env.example is tracked.
+.env
+.env.*
+!.env.example
+
+# misc
+.DS_Store
+coverage/
+npm-debug.log*
+.vercel
+supabase/.branches/
+supabase/.temp/
