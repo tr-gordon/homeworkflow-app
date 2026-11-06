@@ -66,6 +66,8 @@ export interface HomeworkRepo {
   /** Newest first. */
   listAllocationHistory(assignmentId: string): Promise<AllocationChange[]>;
 
+  /** The student's running or paused timer with its assignment, or null (also null in the parent view). */
+  getActiveTimer(): Promise<{ session: TimerSession; assignment: Assignment } | null>;
   timerStart(assignmentId: string): Promise<TimerSession>;
   timerPause(sessionId: string): Promise<TimerSession>;
   timerResume(sessionId: string): Promise<TimerSession>;

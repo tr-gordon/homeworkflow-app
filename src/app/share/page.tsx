@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { CalendarExport } from "@/components/CalendarCard";
 import { Button, Card, ErrorNote, Loading } from "@/components/ui";
 import { getRepo } from "@/lib/data";
 import type { ChangesImportResult, SnapshotImportResult } from "@/lib/data/types";
@@ -71,6 +72,12 @@ function changesText(r: ChangesImportResult): Msg {
   return { ok: true, text: `Changes from ${r.parentName}: ${parts.join(", ")}.` };
 }
 
+function MyCalendar() {
+  const students = useLoad(() => getRepo().listStudents(), []);
+  if (students.status !== "ready" || !students.data[0]) return null;
+  return <CalendarExport studentId={students.data[0].id} studentName={students.data[0].displayName} ownHomework />;
+}
+
 /** Student device (or its parent view): export the snapshot, import the parent's changes, back up and restore. */
 function StudentShare() {
   const repo = getRepo();
@@ -104,6 +111,15 @@ function StudentShare() {
           Share my homework file
         </Button>
         <Message msg={msg} />
+      </Card>
+
+      <Card className="space-y-3">
+        <h2 className="text-lg font-bold">Calendar reminders</h2>
+        <p className="text-sm text-muted">
+          Adds your due dates and planned work to your phone&apos;s calendar with alarms (5 pm the day before and 7:30 am on the day). Your calendar fires them even when HomeworkFlow is closed. Open the
+          file again after changes; it updates the same events. Calendars don&apos;t remove events for work you later finish or delete.
+        </p>
+        <MyCalendar />
       </Card>
 
       <Card className="space-y-3">
@@ -188,6 +204,10 @@ function StudentCard({ student, onChanged }: { student: Profile; onChanged: () =
       </Button>
       <p className="text-sm text-muted">The student opens this file in their app and the new times apply right away. Sending again is safe: changes already applied are skipped.</p>
       <Message msg={msg} />
+      <div className="border-t border-border pt-3">
+        <p className="mb-2 text-sm text-muted">Get {student.displayName}&apos;s due dates as alarms in your own calendar (as of the data above).</p>
+        <CalendarExport studentId={student.id} studentName={student.displayName} ownHomework={false} />
+      </div>
     </Card>
   );
 }

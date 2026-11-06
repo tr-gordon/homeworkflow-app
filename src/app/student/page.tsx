@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { AssignmentCard } from "@/components/AssignmentCard";
+import { AttentionBanner } from "@/components/AttentionBanner";
 import { DailyPlanView } from "@/components/DailyPlanView";
 import { Button, Card, ErrorNote, Loading } from "@/components/ui";
 import { getRepo } from "@/lib/data";
@@ -83,6 +84,8 @@ function Dashboard({ viewer }: { viewer: Profile }) {
           <Button>Add assignment</Button>
         </Link>
       </div>
+
+      <AttentionBanner viewer={viewer} />
 
       {view.active ? <ActiveTimerBar assignment={view.active} /> : null}
 

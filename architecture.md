@@ -118,6 +118,35 @@ device clock, so refreshes lose nothing. One active session per student is enfor
   hosts. Inline scripts are allowed because the Next.js static runtime needs them.
 - `agentRules: false` in `next.config.ts` stops `next dev` generating agent instruction files.
 
+## 7b. Alerts (N1 to N6)
+
+All local; nothing is sent anywhere.
+
+- `domain/alerts.ts` (pure): `timerAlertState` (heads-up and "used up" from elapsed seconds against the
+  plan), `alertsToFire` (each alert once; if already past the plan only "reached" fires), `alertKey`
+  (session + plan + kind, so a longer plan can alert again), messages, and `buildAttention`
+  (overdue and due-today counts and titles).
+- `components/TimerAlertsHost.tsx` is mounted for the student's own view. Every second, and when the tab
+  becomes visible again, it reads the saved running timer (`repo.getActiveTimer()`) and derives alerts
+  from the device clock, so a sleeping phone still alerts when looked at. It marks an alert fired
+  before delivering it, so a refresh or second tab does not repeat it.
+- `lib/notify.ts`: Web Audio beep (unlocked by the first tap), `navigator.vibrate`, system notifications
+  through the service worker (the only route that works on phones), and `setAppBadge`. Each
+  checks the API exists and swallows failures.
+- `lib/alerts-store.ts`: preferences and the "already alerted" keys in their own localStorage key
+  (`homeworkflow.alerts.v1`), validated with defaults, and every method is total, so damaged
+  alert data cannot affect homework data.
+- `components/AttentionBanner.tsx`: banner, icon badge (student view only) and the once-a-day
+  notification; the parent sees per-student lines.
+- `domain/ics.ts` (pure): RFC 5545 builder with CRLF lines, 75-octet folding that never splits a
+  character, escaping, stable `UID`s and a `SEQUENCE` from `updatedAt` so a re-import updates events. All-day
+  events with `VALARM`s; completed work is left out.
+- `public/sw.js` handles notification taps by focusing or opening the app.
+
+Not possible without a server: waking a closed app (see N5). Headless Chromium cannot display
+notifications at all, so tests assert that the app *asks* for the right notification (once a day), not
+that a phone shows it.
+
 ## 8. Testing
 
 | Layer | Tool | Proves |
@@ -125,7 +154,9 @@ device clock, so refreshes lose nothing. One active session per student is enfor
 | Domain | Vitest | Estimates, overdue, plan, timer maths. |
 | Data layer | Vitest over an in-memory store | CRUD, role permissions, PIN lockout, timer persistence across refresh, allocation history, corrupt storage, demo mode. |
 | Sync | Vitest, two simulated devices | Round trip, idempotency, conflicts, tampering, wrong student, outbox, backup/restore. |
+| Alerts | Vitest (domain, store, repo) | Thresholds and boundaries, fire-once, late wake, attention counts, `.ics` structure/folding/escaping, damaged alert data. |
 | Guard | `scripts/check-privacy.mjs` + test | No network APIs or external URLs in app code. |
+| End to end (alerts) | Playwright with a fake clock (`scripts/ui-alerts.cjs`, manual) | Heads-up at 5 min, "time is up" at 10, no repeat after refresh, late wake, banner, badge, notification requests, settings, calendar file. |
 | End to end | Playwright (`scripts/ui-smoke.cjs`, manual) | Real browsers as two devices: setup, timer refresh, PIN, file exchange, tamper rejection, offline, no off-origin requests. |
 
 Not covered: installing to a phone's home screen, the native share sheet (the download path is
@@ -134,6 +165,7 @@ tested), other browsers/engines, very large data sets.
 ## 9. Known limitations
 
 - Not real time. The parent sees data as of the last snapshot file.
+- Alerts only work while the app is open (or on the next look); only calendar reminders fire when it is closed.
 - Data exists only on the device: clearing site data loses it unless a backup file exists.
 - Device clock drives the timer and conflict ordering.
 - localStorage is about 5 MB; plenty for homework, but not unlimited.

@@ -8,7 +8,7 @@
  * Pages you have opened once keep working offline. Paths are derived from the
  * worker's scope so it works under a sub-path such as /Homeworkflow/.
  */
-const CACHE = "homeworkflow-v2";
+const CACHE = "homeworkflow-v3";
 const SCOPE = new URL(self.registration.scope);
 const ROUTES = ["", "student/", "parent/", "new/", "assignment/", "share/", "settings/", "setup/", "offline/"];
 
@@ -56,4 +56,15 @@ self.addEventListener("fetch", (event) => {
         .catch(() => caches.match(request, { ignoreSearch: true }).then((hit) => hit || caches.match(new URL("offline/", SCOPE)))),
     );
   }
+});
+
+// Tapping a notification brings the app forward (or opens it).
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      const open = clients.find((c) => c.url.startsWith(SCOPE.href));
+      return open ? open.focus() : self.clients.openWindow(SCOPE.href);
+    }),
+  );
 });

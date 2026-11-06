@@ -51,6 +51,23 @@ sides changed the same time, the newest change wins and the older one is kept in
 The same file is a **backup**: *Restore from a backup* puts it back on a fresh device. Clearing the
 browser's site data deletes everything unless you have saved one.
 
+## Alerts
+
+- **Timer alerts:** with a planned time, a heads-up 5 minutes before it is used up (plans under 10
+  minutes skip it) and an alert when it is, with a beep and vibration. If the phone slept past the plan,
+  the alert says how far past.
+- **Due soon and overdue:** a banner on the dashboard, and the number on the app icon for an installed
+  app. A parent sees it per student, as of the last file.
+- **System notifications** are opt-in (Settings): timer alerts while the app is in the background, and one
+  note a day when you open the app with work due.
+- **Calendar reminders:** Share, *Add reminders to my calendar* makes an `.ics` file with alarms (5 pm the
+  day before and 7:30 am on the due day). Your calendar fires them even when HomeworkFlow is closed. A
+  parent can export a student's due dates to their own calendar too.
+
+There is no server, so nothing can wake a closed app: the in-app alerts and notifications work while
+the app is open or when you next look at it, and calendar reminders are the way to be alerted when it is
+closed. Settings has a *Test alert* button.
+
 ## Scripts
 
 | Command | What it does |
@@ -62,7 +79,10 @@ browser's site data deletes everything unless you have saved one.
 | `npm run check:privacy` | Fails if app code uses network APIs or external URLs |
 | `npm run check` | The whole gate in order |
 
-End-to-end browser test (manual, needs Playwright): see the header of `scripts/ui-smoke.cjs`.
+End-to-end browser tests (manual, need Playwright): `scripts/ui-smoke.cjs` (two devices, files, offline) and
+`scripts/ui-alerts.cjs` (alerts with a fake clock). Headers explain how to run them.
+Not covered by any test: a phone actually showing a system notification, the app-icon badge, and calendar
+apps importing the `.ics` file. Check those once on a real phone.
 It drives two browser contexts as two devices and checks the file exchange, tamper rejection,
 offline use and that nothing leaves the origin.
 
@@ -108,5 +128,5 @@ tests/            domain, data, sync, guard
 
 ## Known limitations
 
-Not real time (parent data is as of the last file). No notifications. Data lives only on the
+Not real time (parent data is as of the last file). Alerts need the app open (calendar reminders excepted). Data lives only on the
 device. See `architecture.md` section 9 and `PRD.md` section 8 for open questions.

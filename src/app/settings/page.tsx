@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AlertSettingsCard } from "@/components/AlertSettings";
 import { AppShell } from "@/components/AppShell";
 import { Button, Card, ErrorNote, Field, Loading, inputClass } from "@/components/ui";
 import { getRepo } from "@/lib/data";
@@ -74,6 +75,8 @@ export default function SettingsPage() {
             {studentDevice ? "Student's device" : "Parent's device"}: <strong>{device.displayName}</strong>
           </p>
         </Card>
+
+        <AlertSettingsCard timers={studentDevice && viewer.role === "student"} />
 
         {studentDevice && viewer.role === "student" ? <PinSettings hasPin={device.hasParentPin} parentName={device.parentName} /> : null}
         {studentDevice && viewer.role === "parent" ? (

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { AllocationEditor } from "@/components/AllocationEditor";
 import { AppShell } from "@/components/AppShell";
 import { AssignmentCard } from "@/components/AssignmentCard";
+import { AttentionBanner } from "@/components/AttentionBanner";
 import { Button, Card, ErrorNote, Loading } from "@/components/ui";
 import { getRepo } from "@/lib/data";
 import { addDays, compareDates } from "@/lib/domain/dates";
@@ -194,6 +195,7 @@ function Dashboard({ viewer }: { viewer: Profile }) {
 
   return (
     <div className="space-y-5">
+      <AttentionBanner viewer={viewer} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-extrabold">{student.displayName}&apos;s homework</h1>
         {students.data.length > 1 ? (

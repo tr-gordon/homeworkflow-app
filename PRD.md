@@ -29,7 +29,7 @@ files (see section 5, "Sharing").
 ## 4. Non-goals
 
 - Live sync between devices (needs a server). Sharing is by file, so it is not instant.
-- Accounts, passwords, email, push notifications.
+- Accounts, passwords, email, and push notifications from a server or third-party push service (see N5).
 - School/LMS integration, native apps, rewards or social features.
 - Strong access control on a shared device (the parent PIN is a soft lock).
 
@@ -92,6 +92,29 @@ files (see section 5, "Sharing").
 - **F6** *Backup/restore*: the snapshot file doubles as a backup; it can restore the same
   student onto a fresh device.
 
+### Alerts (no server)
+- **N1** *Timer alerts.* While a timer with a planned time is running, the student gets a heads-up
+  5 minutes before the plan is used up (skipped for plans under 10 minutes) and an alert when it is
+  used up. An alert shows on screen, with a beep and vibration (each can be turned off), and as a system
+  notification if the app is in the background and notifications are on. Each alert fires once per timer
+  and plan (a refresh does not repeat it; a longer plan can alert again). If the phone slept past the
+  plan, the alert says how far past ("15 min over"), never a stale "5 minutes left".
+- **N2** *Due-soon and overdue.* A dashboard banner lists overdue and due-today work (dismissible for
+  the day). On the student's own view the installed app's icon shows that count as a badge. A parent
+  sees it per student, as of the last file.
+- **N3** *System notifications* are opt-in (off by default, enabled in Settings only after the browser
+  allows them). Besides timer alerts, at most one "work needs attention" notification per day when
+  the app is opened with work due.
+- **N4** *Calendar reminders.* The student, or a parent for an imported student, exports due dates and
+  planned work as an `.ics` file with alarms (5 pm the day before and 7:30 am on the due day; 3:30 pm on a
+  planned work day). The phone's calendar fires them, so they work with the app closed. Re-importing
+  updates the same events; calendars do not remove events for finished or deleted work.
+- **N5** *Honest limits.* With no server, nothing can wake a closed app, so N1 to N3 only work while the
+  app is open or when it is next looked at; calendar reminders (N4) are the only closed-app alert. A
+  push service (for example OneSignal, as MEDS uses) would need an external account, send device identifiers
+  to a third party and break X1, so it is not used.
+- **N6** Alert preferences are stored apart from the homework data and can never block or damage it.
+
 ## 6. Security and privacy requirements
 
 - **X1** No data leaves the device. App code makes no network requests; a build-time
@@ -129,12 +152,16 @@ Decided without the owner (revisit if wrong):
 4. Several parents can each hold the snapshot and send changes; names come from the signed file.
 5. A student can erase their own device data (and so can anyone using that browser).
 
+6. Alert times (heads-up at 5 minutes, 5 pm / 7:30 am / 3:30 pm calendar alarms) are fixed
+   choices, since homework has no time of day. Make them settings if they don't suit.
+
 Open:
 - Should the parent be able to start or stop timers? (Currently no.)
+- Is a third-party push service acceptable after all, for alerts when the app is closed?
 - Is a 4 hour timer cap right?
 - Hosting: GitHub Pages needs a public repo on a free plan. See README.
 
 ## 9. Future work
 
-Optional encrypted cloud sync, reminders, calendar export, manual time correction with an
+Optional encrypted cloud sync, a push service for alerts when the app is closed, manual time correction with an
 audit trail, recurring assignments, school import, QR-code transfer of small files.

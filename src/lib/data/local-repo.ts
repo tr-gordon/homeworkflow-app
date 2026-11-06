@@ -401,6 +401,15 @@ export class LocalRepo implements HomeworkRepo {
     }
   }
 
+  async getActiveTimer(): Promise<{ session: TimerSession; assignment: Assignment } | null> {
+    const s = this.load();
+    const v = this.viewerOf(s);
+    if (v.role !== "student") return null;
+    const session = s.sessions.find((x) => x.studentId === v.id && isActive(x.state));
+    const assignment = session && s.assignments.find((a) => a.id === session.assignmentId);
+    return session && assignment ? { session, assignment } : null;
+  }
+
   async timerStart(assignmentId: string): Promise<TimerSession> {
     const s = this.load();
     const v = this.requireStudentView(s);

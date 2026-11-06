@@ -27,8 +27,13 @@ export function fileNameFor(kind: "snapshot" | "changes", who: string, now = new
  * files (phones), otherwise a normal download. Returns which one happened.
  */
 export async function deliverJsonFile(name: string, data: unknown, title: string): Promise<"shared" | "downloaded"> {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const file = new File([blob], name, { type: "application/json" });
+  return deliverFile(name, JSON.stringify(data, null, 2), "application/json", title);
+}
+
+/** Same as deliverJsonFile for any text file (for example a calendar .ics). */
+export async function deliverFile(name: string, content: string, mime: string, title: string): Promise<"shared" | "downloaded"> {
+  const blob = new Blob([content], { type: mime });
+  const file = new File([blob], name, { type: mime });
   if (typeof navigator !== "undefined" && navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title });
