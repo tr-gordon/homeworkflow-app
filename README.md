@@ -79,8 +79,10 @@ closed. Settings has a *Test alert* button.
 | `npm run check:privacy` | Fails if app code uses network APIs or external URLs |
 | `npm run check` | The whole gate in order |
 
-End-to-end browser tests (manual, need Playwright): `scripts/ui-smoke.cjs` (two devices, files, offline) and
-`scripts/ui-alerts.cjs` (alerts with a fake clock). Headers explain how to run them.
+End-to-end browser tests (manual, need Playwright): `scripts/ui-smoke.cjs` (two devices, files, offline),
+`scripts/ui-alerts.cjs` (alerts with a fake clock), `scripts/ui-network.cjs` (a stalled connection must not
+freeze the app; updates still arrive) and `scripts/ui-robust.cjs` (older phones, and a screen that breaks).
+Headers explain how to run them.
 Not covered by any test: a phone actually showing a system notification, the app-icon badge, and calendar
 apps importing the `.ics` file. Check those once on a real phone.
 It drives two browser contexts as two devices and checks the file exchange, tamper rejection,
@@ -103,8 +105,9 @@ Other hosts: Cloudflare Pages or Netlify work the same way (build command `npm r
 output directory `out`). Serving locally needs `https` or `localhost`, because the PIN and file
 signatures use the browser's Web Crypto, which needs a secure context.
 
-To install: open the site on a phone and use "Add to Home Screen". Pages you have opened once
-also work offline.
+To install: open the site on a phone and use "Add to Home Screen". After the first visit the whole app
+opens instantly and works offline, even on a bad connection. A new version is picked up on the next
+open after you publish it (the first open after a deploy still shows the old one).
 
 ## Privacy and security
 

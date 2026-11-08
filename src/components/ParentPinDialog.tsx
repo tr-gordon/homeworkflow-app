@@ -14,7 +14,10 @@ export function ParentPinDialog({ onClose, onUnlocked }: { onClose: () => void; 
 
   useEffect(() => {
     const d = ref.current;
-    if (d && !d.open) d.showModal();
+    if (!d || d.open) return;
+    // showModal() is missing before iOS 15.4; the plain open attribute still shows the dialog.
+    if (typeof d.showModal === "function") d.showModal();
+    else d.setAttribute("open", "");
   }, []);
 
   async function submit(e: React.FormEvent) {

@@ -112,8 +112,20 @@ device clock, so refreshes lose nothing. One active session per student is enfor
 
 - Manifest with relative paths and a service worker that derives its URLs from its scope, so
   the app works at a root domain or under a sub-path (`NEXT_PUBLIC_BASE_PATH=/Homeworkflow`).
-- Service worker: same-origin GET only; network-first for pages, cache-first for hashed assets;
-  pages you've opened work offline. Homework data is not in any cache; it is in localStorage.
+- Service worker (`public/sw.js`, same-origin only). A slow or stalled connection must never freeze an
+  app whose data is all local, so:
+  - **page loads** are answered from the cache at once and refreshed in the background (a new
+    version arrives on the next open); only a first-ever visit waits for the network;
+  - **hashed build files** are cache-first, and at install every page and its scripts are cached, so
+    a page that was never opened still opens on a bad connection;
+  - **Next.js prefetch/navigation requests** (and HEAD checks) get a 2 second limit, then fail
+    fast, which makes Next fall back to a normal page load that the cache answers instantly.
+  Homework data is not in any cache; it is in localStorage.
+- `app/error.tsx` and `app/global-error.tsx` show a recovery screen instead of a blank page if a
+  screen fails to render; the data is stored apart from the screen code and is untouched.
+- Older phones: `lib/ids.ts` falls back when `crypto.randomUUID` is missing (iOS before 15.4, plain
+  http); the PIN dialog works without `<dialog>.showModal()`; the PIN and signed files need Web Crypto,
+  which only exists on https/localhost, and say so plainly (`data/secure.ts`) instead of crashing.
 - CSP meta tag (production builds): `connect-src 'self'` so the page cannot send data to other
   hosts. Inline scripts are allowed because the Next.js static runtime needs them.
 - `agentRules: false` in `next.config.ts` stops `next dev` generating agent instruction files.
@@ -157,6 +169,8 @@ that a phone shows it.
 | Alerts | Vitest (domain, store, repo) | Thresholds and boundaries, fire-once, late wake, attention counts, `.ics` structure/folding/escaping, damaged alert data. |
 | Guard | `scripts/check-privacy.mjs` + test | No network APIs or external URLs in app code. |
 | End to end (alerts) | Playwright with a fake clock (`scripts/ui-alerts.cjs`, manual) | Heads-up at 5 min, "time is up" at 10, no repeat after refresh, late wake, banner, badge, notification requests, settings, calendar file. |
+| End to end (network) | Playwright (`scripts/ui-network.cjs`, manual) | A 20 s network stall does not delay opening the app (65 ms) or tapping to a new page (2.4 s), it opens offline, and a new deploy arrives by the second open. |
+| End to end (robustness) | Playwright (`scripts/ui-robust.cjs`, manual) | No `randomUUID`, no `showModal()`: still works; a screen that throws shows the recovery message and leaves the data untouched. |
 | End to end | Playwright (`scripts/ui-smoke.cjs`, manual) | Real browsers as two devices: setup, timer refresh, PIN, file exchange, tamper rejection, offline, no off-origin requests. |
 
 Not covered: installing to a phone's home screen, the native share sheet (the download path is
@@ -169,4 +183,6 @@ tested), other browsers/engines, very large data sets.
 - Data exists only on the device: clearing site data loses it unless a backup file exists.
 - Device clock drives the timer and conflict ordering.
 - localStorage is about 5 MB; plenty for homework, but not unlimited.
+- A first-ever visit needs the network (nothing is cached yet); after install the app opens instantly.
+- A new version arrives on the second open after a deploy, because page loads come from the cache first.
 - No strict CSP for scripts (`unsafe-inline`); the network lock is the main protection.

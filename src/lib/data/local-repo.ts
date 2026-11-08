@@ -17,6 +17,7 @@ import {
   type AssignmentInput,
   type AssignmentPatch,
 } from "../validation";
+import { newId as randomId } from "../ids";
 import { buildDemoState } from "./demo-seed";
 import { RepoError } from "./errors";
 import { LOCK_MS, MAX_FAILURES, PIN_ITERATIONS, hashPin, verifyPin } from "./pin";
@@ -89,7 +90,7 @@ export class LocalRepo implements HomeworkRepo {
     this.mode = opts.demo ? "demo" : "local";
     this.key = opts.demo ? DEMO_STORAGE_KEY : STORAGE_KEY;
     this.clock = opts.clock ?? (() => new Date());
-    this.newId = opts.newId ?? (() => crypto.randomUUID());
+    this.newId = opts.newId ?? (() => randomId());
     this.pinIterations = opts.pinIterations ?? PIN_ITERATIONS;
   }
 

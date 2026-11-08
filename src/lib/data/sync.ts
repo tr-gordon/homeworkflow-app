@@ -2,6 +2,8 @@ import { z } from "zod";
 import { elapsedSeconds } from "../domain/timer";
 import type { AllocationChange, TimerSession } from "../domain/types";
 import { LIMITS } from "../validation";
+import { RepoError } from "./errors";
+import { requireSubtle } from "./secure";
 import {
   assignmentSchema,
   changeSchema,
@@ -87,11 +89,11 @@ export function canonicalChanges(f: Omit<ChangesFile, "mac">): string {
 }
 
 async function hmacKey(secret: string, usage: "sign" | "verify") {
-  return crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, [usage]);
+  return requireSubtle().importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, [usage]);
 }
 
 export async function signChanges(file: Omit<ChangesFile, "mac">, secret: string): Promise<string> {
-  const sig = await crypto.subtle.sign("HMAC", await hmacKey(secret, "sign"), new TextEncoder().encode(canonicalChanges(file)));
+  const sig = await requireSubtle().sign("HMAC", await hmacKey(secret, "sign"), new TextEncoder().encode(canonicalChanges(file)));
   return toB64(new Uint8Array(sig));
 }
 
@@ -99,8 +101,9 @@ export async function signChanges(file: Omit<ChangesFile, "mac">, secret: string
 export async function verifyChanges(file: ChangesFile, secret: string): Promise<boolean> {
   try {
     const { mac, ...rest } = file;
-    return await crypto.subtle.verify("HMAC", await hmacKey(secret, "verify"), fromB64(mac), new TextEncoder().encode(canonicalChanges(rest)));
-  } catch {
+    return await requireSubtle().verify("HMAC", await hmacKey(secret, "verify"), fromB64(mac), new TextEncoder().encode(canonicalChanges(rest)));
+  } catch (e) {
+    if (e instanceof RepoError) throw e; // "needs a secure page" is not the same as "bad signature"
     return false;
   }
 }

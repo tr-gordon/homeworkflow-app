@@ -23,7 +23,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       });
     }
     // Ask the browser not to evict our data when storage is tight (best effort).
-    navigator.storage?.persist?.().catch(() => undefined);
+    try {
+      void Promise.resolve(navigator.storage?.persist?.()).catch(() => undefined);
+    } catch {
+      // not supported: fine
+    }
 
     const check = async (): Promise<Gate> => {
       if (!storageAvailable()) return { status: "blocked" };
