@@ -4,14 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertsStore } from "@/lib/alerts-store";
 import { getRepo } from "@/lib/data";
 import { attentionText, buildAttention, titleList, type AttentionSummary } from "@/lib/domain/alerts";
+import { overdueToArchive, visibleOnly } from "@/lib/domain/archive";
 import { toPlanItem } from "@/lib/domain/history";
 import type { Profile } from "@/lib/domain/types";
-import { useLoad, useToday } from "@/lib/hooks";
+import { DATA_CHANGED_EVENT, errorMessage, useLoad, useToday } from "@/lib/hooks";
 import { notificationPermission, setBadge, showSystemNotification } from "@/lib/notify";
 
 interface Row {
   name: string;
   summary: AttentionSummary;
+  /** Overdue (not due today) unfinished work that "Archive overdue" would hide. */
+  overdueIds: string[];
 }
 
 const dismissKey = (today: string) => `homeworkflow.attention.dismissed.${today}`;
@@ -33,14 +36,21 @@ function wasDismissed(today: string): boolean {
 export function AttentionBanner({ viewer }: { viewer: Profile }) {
   const today = useToday();
   const [dismissedDay, setDismissedDay] = useState<string | null>(null);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
 
   const data = useLoad(async () => {
     const repo = getRepo();
     const students = await repo.listStudents();
     const rows: Row[] = [];
     for (const s of students) {
-      const items = await repo.listAssignments(s.id);
-      rows.push({ name: s.displayName, summary: buildAttention(items.map((a) => toPlanItem(a, new Date())), today || "0000-00-00") });
+      const all = await repo.listAssignments(s.id);
+      const items = visibleOnly(all); // archived work never nags
+      const day = today || "0000-00-00";
+      rows.push({
+        name: s.displayName,
+        summary: buildAttention(items.map((a) => toPlanItem(a, new Date())), day),
+        overdueIds: overdueToArchive(items, day).map((a) => a.id),
+      });
     }
     return rows;
   }, [viewer.id, today]);
@@ -65,6 +75,19 @@ export function AttentionBanner({ viewer }: { viewer: Profile }) {
     void showSystemNotification("Homework needs attention", `${attentionText(studentSummary)}: ${names}`, "attention");
   }, [today, studentSummary]);
 
+  const mine = viewer.role === "student" ? data.status === "ready" ? data.data[0] : undefined : undefined;
+
+  async function archiveOverdue(ids: string[]) {
+    if (ids.length === 0 || !window.confirm(`Archive ${ids.length} overdue assignment${ids.length === 1 ? "" : "s"}? They move to Archived and stop showing alerts. You can restore them any time.`)) return;
+    setArchiveError(null);
+    try {
+      await getRepo().archiveAssignments(ids);
+      window.dispatchEvent(new Event(DATA_CHANGED_EVENT));
+    } catch (e) {
+      setArchiveError(errorMessage(e));
+    }
+  }
+
   if (rows.length === 0 || dismissedDay === today || wasDismissed(today)) return null;
   return (
     <div role="status" className="flex items-start justify-between gap-3 rounded-2xl border border-danger bg-danger-soft px-4 py-3 text-danger">
@@ -81,6 +104,12 @@ export function AttentionBanner({ viewer }: { viewer: Profile }) {
             </li>
           ))}
         </ul>
+        {mine && mine.overdueIds.length > 0 ? (
+          <button type="button" className="mt-2 min-h-11 rounded-lg border border-danger px-3 text-sm font-semibold" onClick={() => archiveOverdue(mine.overdueIds)}>
+            Archive overdue ({mine.overdueIds.length})
+          </button>
+        ) : null}
+        {archiveError ? <p className="mt-1 text-sm font-semibold">{archiveError}</p> : null}
       </div>
       <button
         type="button"

@@ -60,6 +60,9 @@ browser's site data deletes everything unless you have saved one.
   app. A parent sees it per student, as of the last file.
 - **System notifications** are opt-in (Settings): timer alerts while the app is in the background, and one
   note a day when you open the app with work due.
+- **If the timer runs out:** the alert repeats until you dismiss it, and has **+5 / +10 min** buttons (the new
+  time is recorded in the history). While a timer with a plan runs, the screen is kept on so the phone does not
+  sleep through it (Settings can turn that off).
 - **Calendar reminders:** Share, *Add reminders to my calendar* makes an `.ics` file with alarms (5 pm the
   day before and 7:30 am on the due day). Your calendar fires them even when HomeworkFlow is closed. A
   parent can export a student's due dates to their own calendar too.
@@ -67,6 +70,15 @@ browser's site data deletes everything unless you have saved one.
 There is no server, so nothing can wake a closed app: the in-app alerts and notifications work while
 the app is open or when you next look at it, and calendar reminders are the way to be alerted when it is
 closed. Settings has a *Test alert* button.
+
+## Place and archive
+
+- **Where:** each assignment can have a place (Home, Library, School or your own text). It shows on cards and the
+  plan, and goes into the calendar reminders.
+- **Archive instead of delete:** on an assignment, **Archive** hides it from the dashboard, alerts and calendar but
+  keeps its time and history; finished work still improves your time estimates. **Archive overdue** (on the
+  heads-up banner) and **Archive all completed** tidy up in one tap, and **Archived** lists everything with
+  **Restore**. Delete is for mistakes: it cannot be undone. A parent sees archived work read-only.
 
 ## Scripts
 
@@ -80,7 +92,7 @@ closed. Settings has a *Test alert* button.
 | `npm run check` | The whole gate in order |
 
 End-to-end browser tests (manual, need Playwright): `scripts/ui-smoke.cjs` (two devices, files, offline),
-`scripts/ui-alerts.cjs` (alerts with a fake clock), `scripts/ui-network.cjs` (a stalled connection must not
+`scripts/ui-alerts.cjs` (alerts with a fake clock), `scripts/ui-organize.cjs` (place and archive), `scripts/ui-network.cjs` (a stalled connection must not
 freeze the app; updates still arrive) and `scripts/ui-robust.cjs` (older phones, and a screen that breaks).
 Headers explain how to run them.
 Not covered by any test: a phone actually showing a system notification, the app-icon badge, and calendar

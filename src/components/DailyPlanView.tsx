@@ -24,6 +24,7 @@ function Row({ a, today, now, tone, canStart, onStart, extra }: { a: Item; today
           <div className="flex flex-wrap items-center gap-1.5">
             <Chip tone="brand">{a.subject}</Chip>
             <StageBadge stage={a.stage} />
+            {a.location ? <Chip>At {a.location}</Chip> : null}
             {tone === "danger" ? (
               <Chip tone="danger">
                 <span aria-hidden>⚠</span> {describeDue(a.dueDate, today)}

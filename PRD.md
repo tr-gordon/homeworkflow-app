@@ -64,6 +64,19 @@ files (see section 5, "Sharing").
 - **R3** A single running stretch counts at most 4 hours (forgotten timers).
 - **R4** Finishing ends the session and offers a stage update; sessions add up.
 
+### Organising: place and archive
+- **W1** *Where.* An optional place per assignment ("Home", "Library", "School" as quick choices, or any
+  text up to 40 characters). It shows on cards, the plan and the parent dashboard, and becomes the
+  location of its calendar reminders. Older saved data and files without it still load.
+- **C1** *Archive, don't delete.* The student can archive an assignment (one, all overdue from the
+  heads-up banner, or all completed) and restore it. Archived work is hidden from the dashboard, plan,
+  alerts, icon badge and calendar reminders, but its time and history are kept and finished work still feeds
+  the time estimates. It stays listed under "Archived" (student) and as a read-only "Archived" list (parent).
+  Delete remains, for mistakes. An assignment with a running or paused timer cannot be archived, and an
+  archived one cannot be timed until restored.
+- **C2** Archiving is the student's own action: the parent view and a parent's device cannot archive or
+  restore.
+
 ### Progress, planned vs actual, plan
 - **P1** Stages: not started, getting started, halfway, almost done, completed. Shown as
   words, never as percentages or a filling progress bar.
@@ -99,6 +112,10 @@ files (see section 5, "Sharing").
   notification if the app is in the background and notifications are on. Each alert fires once per timer
   and plan (a refresh does not repeat it; a longer plan can alert again). If the phone slept past the
   plan, the alert says how far past ("15 min over"), never a stale "5 minutes left".
+  To make it more reliable: the screen is kept on while a timer with a plan runs (a setting, on by
+  default; released on pause); the "time is up" alert repeats a beep and vibration every 30 seconds
+  (at most 10 times) until dismissed; and it offers **+5 / +10 min**, which extends the plan, is recorded
+  in the history as the student's change, and lets the alerts fire again at the new plan.
 - **N2** *Due-soon and overdue.* A dashboard banner lists overdue and due-today work (dismissible for
   the day). On the student's own view the installed app's icon shows that count as a badge. A parent
   sees it per student, as of the last file.
@@ -143,6 +160,10 @@ files (see section 5, "Sharing").
 
 Decided with the owner: no server or database; parent access by same-device PIN view plus
 a file round trip; the Supabase prototype is kept only in git history.
+
+Decided with the owner (enhancement round): archive rather than delete, student-only, for overdue and
+finished work; place is per assignment; timer alerts get wake lock, repeat and +5/+10; start time and
+"work together" come next, settable by the student or the parent.
 
 Decided without the owner (revisit if wrong):
 1. "No approval" means no accept/reject step. The student still has to open the parent's

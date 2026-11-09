@@ -9,6 +9,8 @@ export type RepoErrorCode =
   | "timer_not_paused"
   | "timer_already_finished"
   | "timer_not_found"
+  | "assignment_busy"
+  | "assignment_archived"
   | "pin_not_set"
   | "wrong_pin"
   | "pin_locked"
@@ -29,6 +31,8 @@ const FRIENDLY: Record<RepoErrorCode, string> = {
   timer_not_paused: "That timer isn't paused.",
   timer_already_finished: "That timer is already finished.",
   timer_not_found: "We couldn't find that timer.",
+  assignment_busy: "Finish or stop the timer on that assignment first.",
+  assignment_archived: "Restore this assignment first.",
   pin_not_set: "No parent PIN is set yet. Set one in Settings first.",
   wrong_pin: "That PIN isn't right.",
   pin_locked: "Too many wrong PINs. Please wait a minute and try again.",

@@ -130,6 +130,21 @@ device clock, so refreshes lose nothing. One active session per student is enfor
   hosts. Inline scripts are allowed because the Next.js static runtime needs them.
 - `agentRules: false` in `next.config.ts` stops `next dev` generating agent instruction files.
 
+## 7a. Place and archive (W1, C1, C2)
+
+- Two additive assignment fields, `location` (max 40) and `archivedAt`, both defaulting to null in the stored
+  state and in snapshot files, so older data and files load unchanged (the state version stays 2).
+- `LocalRepo.archiveAssignments(ids)` is student-view only and all-or-nothing: an unknown id archives none, and a
+  running or paused timer on any of them blocks the batch (`assignment_busy`). `restoreAssignment` is idempotent.
+  `timerStart` refuses an archived assignment (`assignment_archived`). Neither touches the allocation history.
+- `domain/archive.ts` holds the rules (`visibleOnly`, `archivedOnly`, "overdue to archive", "completed to
+  archive"). Every screen that builds a plan, a count, an alert, a badge or a calendar passes through
+  `visibleOnly`, so archived work cannot reappear in one place by accident. `buildIcs` also skips archived items and writes
+  `LOCATION` on both events.
+- Archived finished work stays in `samplesFromAssignments`, so estimates keep improving.
+- A small `DATA_CHANGED_EVENT` lets code outside a screen (the alert's "+10 min", archive buttons) make every
+  mounted screen reload.
+
 ## 7b. Alerts (N1 to N6)
 
 All local; nothing is sent anywhere.
@@ -138,6 +153,9 @@ All local; nothing is sent anywhere.
   plan), `alertsToFire` (each alert once; if already past the plan only "reached" fires), `alertKey`
   (session + plan + kind, so a longer plan can alert again), messages, and `buildAttention`
   (overdue and due-today counts and titles).
+- Reliability extras: `lib/wake-lock.ts` (Screen Wake Lock while a timer with a plan is running; every failure
+  is silent, it is re-requested after the browser drops it when the page is hidden), a repeat timer on the
+  "time is up" alert (every 30 s, at most 10 times), and `extendedPlan` for "+5 / +10 min".
 - `components/TimerAlertsHost.tsx` is mounted for the student's own view. Every second, and when the tab
   becomes visible again, it reads the saved running timer (`repo.getActiveTimer()`) and derives alerts
   from the device clock, so a sleeping phone still alerts when looked at. It marks an alert fired
@@ -169,6 +187,7 @@ that a phone shows it.
 | Alerts | Vitest (domain, store, repo) | Thresholds and boundaries, fire-once, late wake, attention counts, `.ics` structure/folding/escaping, damaged alert data. |
 | Guard | `scripts/check-privacy.mjs` + test | No network APIs or external URLs in app code. |
 | End to end (alerts) | Playwright with a fake clock (`scripts/ui-alerts.cjs`, manual) | Heads-up at 5 min, "time is up" at 10, no repeat after refresh, late wake, banner, badge, notification requests, settings, calendar file. |
+| End to end (organise) | Playwright (`scripts/ui-organize.cjs`, manual) | Place chips and limit; archive overdue / completed / from the detail page; blocked by a running timer; restore; calendar without archived work and with the place; the parent's read-only Archived list. |
 | End to end (network) | Playwright (`scripts/ui-network.cjs`, manual) | A 20 s network stall does not delay opening the app (65 ms) or tapping to a new page (2.4 s), it opens offline, and a new deploy arrives by the second open. |
 | End to end (robustness) | Playwright (`scripts/ui-robust.cjs`, manual) | No `randomUUID`, no `showModal()`: still works; a screen that throws shows the recovery message and leaves the data untouched. |
 | End to end | Playwright (`scripts/ui-smoke.cjs`, manual) | Real browsers as two devices: setup, timer refresh, PIN, file exchange, tamper rejection, offline, no off-origin requests. |

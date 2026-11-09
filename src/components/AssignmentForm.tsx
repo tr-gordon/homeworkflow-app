@@ -8,6 +8,7 @@ import { assignmentInputSchema, LIMITS, type AssignmentInput } from "@/lib/valid
 import { errorMessage } from "@/lib/hooks";
 import { Button, ErrorNote, Field, inputClass } from "./ui";
 
+const PLACES = ["Home", "Library", "School"];
 const DEFAULT_SUBJECTS = ["Math", "English", "Science", "History", "Spanish", "Art", "Music", "Other"];
 
 export interface FormValues {
@@ -18,10 +19,11 @@ export interface FormValues {
   difficulty: Difficulty | null;
   allocation: string;
   plannedDate: string;
+  location: string;
 }
 
 export function emptyValues(): FormValues {
-  return { title: "", subject: "", description: "", dueDate: "", difficulty: null, allocation: "", plannedDate: "" };
+  return { title: "", subject: "", description: "", dueDate: "", difficulty: null, allocation: "", plannedDate: "", location: "" };
 }
 
 /**
@@ -66,6 +68,7 @@ export function AssignmentForm({
       difficulty: v.difficulty,
       allocatedMinutes: Number.isNaN(allocation) ? -1 : allocation,
       plannedDate: v.plannedDate === "" ? null : v.plannedDate,
+      location: v.location.trim() === "" ? null : v.location.trim(),
     });
     if (!parsed.success) {
       const next: Record<string, string> = {};
@@ -157,6 +160,23 @@ export function AssignmentForm({
             Today
           </Button>
         </div>
+      </Field>
+
+      <Field label="Where will you work on it? (optional)" htmlFor="location" error={errors.location}>
+        <div role="group" aria-label="Common places" className="mb-2 flex flex-wrap gap-2">
+          {PLACES.map((p) => (
+            <button
+              key={p}
+              type="button"
+              aria-pressed={v.location === p}
+              onClick={() => set("location", v.location === p ? "" : p)}
+              className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${v.location === p ? "border-brand bg-brand text-brand-contrast" : "border-border bg-surface hover:bg-surface-2"}`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+        <input id="location" value={v.location} maxLength={LIMITS.location} onChange={(e) => set("location", e.target.value)} className={inputClass} placeholder="Or type a place" autoComplete="off" />
       </Field>
 
       {formError ? <ErrorNote>{formError}</ErrorNote> : null}

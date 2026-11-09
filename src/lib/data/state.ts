@@ -22,6 +22,9 @@ export const assignmentSchema = z.object({
   stage: stageSchema,
   allocatedMinutes: minutesSchema.nullable(),
   plannedDate: date.nullable(),
+  // Added after the first release: older saved data and older files simply lack them.
+  location: z.string().max(40).nullable().default(null),
+  archivedAt: iso.nullable().default(null),
   completedAt: iso.nullable(),
   createdAt: iso,
   updatedAt: iso,

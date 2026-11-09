@@ -18,10 +18,12 @@ export const settingsSchema = z.object({
   warning: z.boolean().catch(true),
   /** System notifications. Off until the person turns them on AND the browser allows them. */
   systemNotifications: z.boolean().catch(false),
+  /** Keep the screen on while a timer with a plan is running, so the alert rings on time. */
+  keepAwake: z.boolean().catch(true),
 });
 export type AlertSettings = z.infer<typeof settingsSchema>;
 
-export const DEFAULT_SETTINGS: AlertSettings = { sound: true, vibrate: true, warning: true, systemNotifications: false };
+export const DEFAULT_SETTINGS: AlertSettings = { sound: true, vibrate: true, warning: true, systemNotifications: false, keepAwake: true };
 
 const dataSchema = z.object({
   settings: settingsSchema.catch(DEFAULT_SETTINGS),

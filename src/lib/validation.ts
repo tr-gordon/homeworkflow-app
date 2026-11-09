@@ -11,6 +11,7 @@ export const LIMITS = {
   subject: 40,
   description: 2000,
   displayName: 40,
+  location: 40,
   minMinutes: 1,
   maxMinutes: 600,
 } as const;
@@ -41,9 +42,12 @@ export const assignmentInputSchema = z.object({
   difficulty: difficultySchema,
   allocatedMinutes: minutesSchema.nullable(),
   plannedDate: dateString.nullable(),
+  /** Optional. Empty means "not set"; the data layer stores that as null. */
+  location: z.string().trim().max(LIMITS.location, "Keep the place short").nullable().optional(),
 });
 
-export type AssignmentInput = z.infer<typeof assignmentInputSchema>;
+/** What callers pass in (location may be left out). */
+export type AssignmentInput = z.input<typeof assignmentInputSchema>;
 
 export const assignmentPatchSchema = assignmentInputSchema.partial().extend({
   stage: stageSchema.optional(),

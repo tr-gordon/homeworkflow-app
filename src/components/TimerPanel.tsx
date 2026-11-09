@@ -113,6 +113,9 @@ export function TimerPanel({
         </div>
 
         {error ? <ErrorNote>{error}</ErrorNote> : null}
+        {running && assignment.allocatedMinutes ? (
+          <p className="text-center text-sm text-muted">Alerts ring while this app is open. A locked phone or a closed app can&apos;t ring.</p>
+        ) : null}
 
         <TimeSummary allocatedMinutes={assignment.allocatedMinutes} actualSeconds={totalSeconds} />
         {assignment.sessions.filter((s) => s.state === "finished").length > 0 ? (

@@ -38,6 +38,7 @@ export function AssignmentCard({
           <Chip tone="brand">{assignment.subject}</Chip>
           <DueChip dueDate={assignment.dueDate} stage={assignment.stage} today={today} />
           <StageBadge stage={assignment.stage} />
+          {assignment.location ? <Chip>At {assignment.location}</Chip> : null}
         </div>
         <h3 className="mt-2 text-lg font-bold leading-snug">{assignment.title}</h3>
       </Link>

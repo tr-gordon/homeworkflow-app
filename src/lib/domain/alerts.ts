@@ -61,6 +61,28 @@ export function timerAlertMessage(kind: TimerAlertKind, allocatedMinutes: number
     : { title: "Past your planned time", body: `${title}: ${overMin} min over your ${allocatedMinutes} min plan.` };
 }
 
+// ---- making the alert reliable ---------------------------------------------------
+
+/** While the "time is up" alert is on screen it repeats (beep and vibration) this often, up to MAX_REPEATS times. */
+export const REPEAT_EVERY_MS = 30_000;
+export const MAX_REPEATS = 10;
+
+/** Quick extensions offered on the "time is up" alert. */
+export const EXTRA_MINUTE_CHOICES = [5, 10] as const;
+
+/** The plan after adding minutes, never above the largest allowed plan. */
+export function extendedPlan(allocatedMinutes: number, extraMinutes: number, maxMinutes = 600): number {
+  return Math.min(maxMinutes, Math.max(1, allocatedMinutes + extraMinutes));
+}
+
+/**
+ * Hold the screen awake only while a timer with a plan is actually running: a sleeping phone
+ * cannot ring. Not while paused, not without a plan, and not if the person turned it off.
+ */
+export function wantsWakeLock(o: { keepAwake: boolean; timerRunning: boolean; hasPlan: boolean }): boolean {
+  return o.keepAwake && o.timerRunning && o.hasPlan;
+}
+
 // ---- due-soon and overdue -------------------------------------------------------
 
 export interface AttentionSummary {

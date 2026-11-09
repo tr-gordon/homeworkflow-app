@@ -8,6 +8,7 @@ import { AssignmentCard } from "@/components/AssignmentCard";
 import { AttentionBanner } from "@/components/AttentionBanner";
 import { Button, Card, ErrorNote, Loading } from "@/components/ui";
 import { getRepo } from "@/lib/data";
+import { archivedOnly, visibleOnly } from "@/lib/domain/archive";
 import { addDays, compareDates } from "@/lib/domain/dates";
 import { toPlanItem } from "@/lib/domain/history";
 import { isOverdue, summarizeWorkload } from "@/lib/domain/plan";
@@ -16,7 +17,7 @@ import type { AssignmentWithTime, Profile } from "@/lib/domain/types";
 import { assignmentHref } from "@/lib/links";
 import { useDevice, useLoad, useNow, useRequireRole, useToday } from "@/lib/hooks";
 
-type Filter = "attention" | "active" | "completed";
+type Filter = "attention" | "active" | "completed" | "archived";
 
 function Tile({ label, value, tone }: { label: string; value: React.ReactNode; tone?: "danger" | "warn" }) {
   return (
@@ -63,9 +64,10 @@ function StudentView({ student }: { student: Profile }) {
 
   const view = useMemo(() => {
     if (!ready) return null;
-    const summary = summarizeWorkload(items.map((a) => toPlanItem(a, now)), today);
+    const shown = visibleOnly(items); // work the student archived is out of the tiles, lists and alerts (see "Archived")
+    const summary = summarizeWorkload(shown.map((a) => toPlanItem(a, now)), today);
     const soon = addDays(today, 2);
-    const active = items.filter((a) => a.stage !== "completed");
+    const active = shown.filter((a) => a.stage !== "completed");
     const attention = active.filter((a) => isOverdue(a, today) || compareDates(a.dueDate, soon) <= 0);
     const sort = (l: AssignmentWithTime[]) => [...l].sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.title.localeCompare(b.title));
     return {
@@ -73,7 +75,8 @@ function StudentView({ student }: { student: Profile }) {
       lists: {
         attention: sort(attention),
         active: sort(active),
-        completed: [...items.filter((a) => a.stage === "completed")].sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? "")),
+        completed: [...shown.filter((a) => a.stage === "completed")].sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? "")),
+        archived: archivedOnly(items),
       },
     };
   }, [ready, items, now, today]);
@@ -87,6 +90,7 @@ function StudentView({ student }: { student: Profile }) {
     { id: "attention", label: "Needs attention", count: view.lists.attention.length },
     { id: "active", label: "All active", count: view.lists.active.length },
     { id: "completed", label: "Completed", count: view.lists.completed.length },
+    ...(view.lists.archived.length > 0 ? [{ id: "archived" as const, label: "Archived", count: view.lists.archived.length }] : []),
   ];
 
   return (
@@ -155,7 +159,7 @@ function StudentView({ student }: { student: Profile }) {
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
-                    {a.stage !== "completed" ? (
+                    {a.stage !== "completed" && !a.archivedAt ? (
                       <Button variant="secondary" className="min-h-10 px-3 text-sm" onClick={() => setEditing(a.id)}>
                         Change time
                       </Button>

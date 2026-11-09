@@ -23,6 +23,8 @@ export interface IcsItem {
   stage: Stage;
   allocatedMinutes: number | null;
   updatedAt: string;
+  location?: string | null;
+  archivedAt?: string | null;
 }
 
 export interface IcsOptions {
@@ -99,13 +101,14 @@ function event(opts: {
     `DTEND;VALUE=DATE:${icsDate(addDays(opts.date, 1))}`,
     `SUMMARY:${icsEscape(opts.summary)}`,
     `DESCRIPTION:${icsEscape(opts.description)}`,
+    ...(opts.item.location ? [`LOCATION:${icsEscape(opts.item.location)}`] : []),
     "TRANSP:TRANSPARENT", // all-day reminders should not make the person look busy
     ...opts.alarms.flat(),
     "END:VEVENT",
   ];
 }
 
-/** The .ics text (CRLF line endings, folded). Completed assignments are left out. */
+/** The .ics text (CRLF line endings, folded). Completed and archived assignments are left out. */
 export function buildIcs(items: readonly IcsItem[], opts: IcsOptions): string {
   const stamp = icsStamp(opts.now);
   const prefix = opts.who ? `${opts.who}: ` : "";
@@ -119,7 +122,7 @@ export function buildIcs(items: readonly IcsItem[], opts: IcsOptions): string {
   ];
 
   for (const item of items) {
-    if (isDone(item.stage)) continue;
+    if (isDone(item.stage) || item.archivedAt) continue; // finished or archived work gets no reminders
     const detail = [item.subject, item.allocatedMinutes ? `planned ${item.allocatedMinutes} min` : null].filter(Boolean).join(", ");
     lines.push(
       ...event({

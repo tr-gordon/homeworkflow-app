@@ -45,6 +45,12 @@ const MIN = 60 * 1000;
     Object.defineProperty(navigator, "setAppBadge", { value: (n) => (window.__badge.push(n), Promise.resolve()), configurable: true });
     Object.defineProperty(navigator, "clearAppBadge", { value: () => (window.__badge.push(0), Promise.resolve()), configurable: true });
     Object.defineProperty(navigator, "vibrate", { value: (p) => (window.__vibrate.push(p), true), configurable: true });
+    // Record Screen Wake Lock use (headless Chromium may refuse the real thing).
+    window.__wake = { requests: 0, releases: 0 };
+    Object.defineProperty(navigator, "wakeLock", {
+      value: { request: async () => (window.__wake.requests++, { addEventListener() {}, release: async () => { window.__wake.releases++; } }) },
+      configurable: true,
+    });
     // Headless Chromium reports Notification.permission as "denied" even when the context granted it
     // (requestPermission() says "granted"). Real browsers agree with each other, so mirror that here.
     Object.defineProperty(Notification, "permission", { get: () => "granted", configurable: true });
@@ -104,6 +110,9 @@ const MIN = 60 * 1000;
   // The alert box only: Next.js also renders an invisible role=alert route announcer.
   const alert = page.locator('div[role="alert"].fixed');
   check("no alert at the start", (await alert.count()) === 0);
+  await page.clock.runFor(1500);
+  const wake1 = await page.evaluate(() => window.__wake.requests);
+  check("the screen is held awake while a timer with a plan runs", wake1 === 1, `(${wake1} request)`);
   await page.clock.fastForward(5 * MIN + 2000);
   await alert.filter({ hasText: "5 minutes left" }).waitFor({ timeout: 5000 });
   check("heads-up fires at 5 minutes", true, `(${(await alert.innerText()).replace(/\n+/g, " ")})`);
@@ -132,11 +141,33 @@ const MIN = 60 * 1000;
   await alert.waitFor({ timeout: 5000 });
   const late = await alert.innerText();
   check("late alert says how far past the plan, with no stale '5 minutes left'", /Past your planned time/.test(late) && /15 min over/.test(late) && !/5 minutes left/.test(late), `(${late.replace(/\n+/g, " ")})`);
-  await alert.getByRole("button", { name: "OK" }).click();
+  check("the alert offers +5 and +10 minutes", (await alert.getByRole("button", { name: "+5 min" }).count()) === 1 && (await alert.getByRole("button", { name: "+10 min" }).count()) === 1);
+  await page.screenshot({ path: path.join(OUT, "02b-time-is-up.png"), fullPage: true });
+
+  // it keeps nudging until dismissed
+  const vibBefore = await page.evaluate(() => window.__vibrate.length);
+  await page.clock.runFor(61000);
+  const vibAfter = await page.evaluate(() => window.__vibrate.length);
+  check("the time-is-up alert repeats (vibration) while it stays on screen", vibAfter >= vibBefore + 2, `(${vibBefore} -> ${vibAfter})`);
+
+  // +10 min extends the plan, is recorded, and the alert comes round again at the new plan
+  await alert.getByRole("button", { name: "+10 min" }).click();
   await page.waitForTimeout(100);
-  await page.clock.runFor(3000);
-  check("only one alert for the late case", (await alert.count()) === 0);
+  check("+10 min closes the alert", (await alert.count()) === 0);
+  await page.clock.runFor(2500);
+  await alert.waitFor({ timeout: 5000 });
+  const extended = await alert.innerText();
+  check("the plan grew by 10 minutes and the alert fires again at the new plan", /over your 30 min plan/.test(extended), `(${extended.replace(/\n+/g, " ")})`);
+  check("the screen shows the new planned time at once", await page.getByText("Planned 30 min").first().isVisible());
+  check("the extension is in the history, made by the student", await page.getByText(/You changed the time from 20 min to 30 min/).first().isVisible());
+  const vibDismissed = await page.evaluate(() => window.__vibrate.length);
+  await alert.getByRole("button", { name: "OK" }).click();
+  await page.clock.runFor(61000);
+  check("dismissing stops the repeating", (await page.evaluate(() => window.__vibrate.length)) === vibDismissed);
+  const relBefore = await page.evaluate(() => window.__wake.releases);
   await page.getByRole("button", { name: "Pause" }).click();
+  await page.clock.runFor(1500);
+  check("the screen is released when the timer is paused", (await page.evaluate(() => window.__wake.releases)) > relBefore);
 
   // ---------- Settings
   await page.getByRole("link", { name: "Settings", exact: true }).first().click();
@@ -145,6 +176,7 @@ const MIN = 60 * 1000;
   await alert.filter({ hasText: "Test alert" }).waitFor({ timeout: 3000 });
   check("Test alert button shows a sample alert", true);
   await alert.getByRole("button", { name: "OK" }).click();
+  check("keep-screen-on defaults to on", await page.getByRole("switch", { name: /^Keep the screen on/ }).isChecked());
   const sound = page.getByRole("switch", { name: /^Sound/ });
   check("sound defaults to on", await sound.isChecked());
   await sound.uncheck();

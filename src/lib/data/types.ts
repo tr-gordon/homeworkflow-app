@@ -63,6 +63,9 @@ export interface HomeworkRepo {
   /** Student, or parent (parent view / parent device). Recorded in allocation history. */
   setAllocation(id: string, minutes: number | null): Promise<Assignment>;
   deleteAssignment(id: string): Promise<void>;
+  /** Student only. Hides assignments from the dashboard, alerts and calendar; data and history are kept. Returns how many changed. */
+  archiveAssignments(ids: string[]): Promise<number>;
+  restoreAssignment(id: string): Promise<Assignment>;
   /** Newest first. */
   listAllocationHistory(assignmentId: string): Promise<AllocationChange[]>;
 

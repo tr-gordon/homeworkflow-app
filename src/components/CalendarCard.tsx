@@ -24,7 +24,7 @@ export function CalendarExport({ studentId, studentName, ownHomework }: { studen
       const items = await getRepo().listAssignments(studentId);
       const now = new Date();
       const ics = buildIcs(items, { now, who: ownHomework ? undefined : studentName });
-      const count = items.filter((a) => a.stage !== "completed").length;
+      const count = items.filter((a) => a.stage !== "completed" && !a.archivedAt).length;
       if (count === 0) {
         setMsg({ ok: false, text: "No active assignments to add." });
         return;

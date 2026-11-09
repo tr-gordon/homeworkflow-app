@@ -110,3 +110,37 @@ describe("attention (due soon and overdue)", () => {
     expect(buildAttention([item("x", "2026-12-01")], today).badge).toBe(0);
   });
 });
+
+describe("making the timer alert reliable", () => {
+  it("extends a plan by the chosen minutes, within the allowed maximum", async () => {
+    const { extendedPlan, EXTRA_MINUTE_CHOICES } = await import("@/lib/domain/alerts");
+    expect(extendedPlan(30, 5)).toBe(35);
+    expect(extendedPlan(30, 10)).toBe(40);
+    expect(extendedPlan(595, 10)).toBe(600); // never above 10 hours
+    expect(extendedPlan(1, -5)).toBe(1); // never below 1 minute
+    expect([...EXTRA_MINUTE_CHOICES]).toEqual([5, 10]);
+  });
+
+  it("an extended plan can alert again, because the alert key includes the plan", () => {
+    const first = alertKey("s1", 30, "reached");
+    const afterExtending = alertKey("s1", 40, "reached");
+    expect(first).not.toBe(afterExtending);
+    // old "reached" is recorded; at the new plan the state is not yet reached, then the heads-up is due again
+    expect(alertsToFire(timerAlertState(2100, 40), new Set<TimerAlertKind>())).toEqual(["warning"]);
+  });
+
+  it("holds the screen awake only while a timer with a plan is running", async () => {
+    const { wantsWakeLock } = await import("@/lib/domain/alerts");
+    const on = { keepAwake: true, timerRunning: true, hasPlan: true };
+    expect(wantsWakeLock(on)).toBe(true);
+    expect(wantsWakeLock({ ...on, keepAwake: false })).toBe(false); // turned off in Settings
+    expect(wantsWakeLock({ ...on, timerRunning: false })).toBe(false); // paused or none
+    expect(wantsWakeLock({ ...on, hasPlan: false })).toBe(false); // nothing to alert about
+  });
+
+  it("repeats the time-is-up nudge a bounded number of times", async () => {
+    const { MAX_REPEATS, REPEAT_EVERY_MS } = await import("@/lib/domain/alerts");
+    expect(MAX_REPEATS * REPEAT_EVERY_MS).toBeLessThanOrEqual(10 * 60_000); // never nags for more than 10 minutes
+    expect(REPEAT_EVERY_MS).toBeGreaterThanOrEqual(15_000);
+  });
+});

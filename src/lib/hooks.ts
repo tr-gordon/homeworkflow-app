@@ -8,6 +8,9 @@ import { getRepo } from "./data";
 import { RepoError } from "./data/errors";
 import type { DeviceInfo } from "./data/types";
 
+/** Fired after something changes the saved data from outside a screen (for example "+10 min" on an alert). */
+export const DATA_CHANGED_EVENT = "hwf-data-changed";
+
 export type Async<T> =
   | { status: "loading"; data: undefined; error: undefined }
   | { status: "ready"; data: T; error: undefined }
@@ -49,8 +52,13 @@ export function useLoad<T>(load: () => Promise<T>, deps: readonly unknown[]): As
     const onVisible = () => {
       if (document.visibilityState === "visible") setTick((t) => t + 1);
     };
+    const onChanged = () => setTick((t) => t + 1);
     document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
+    window.addEventListener(DATA_CHANGED_EVENT, onChanged);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener(DATA_CHANGED_EVENT, onChanged);
+    };
   }, []);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);

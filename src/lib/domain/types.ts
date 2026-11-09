@@ -23,6 +23,10 @@ export interface Assignment {
   allocatedMinutes: number | null;
   /** YYYY-MM-DD the student plans to work on it, if set. */
   plannedDate: string | null;
+  /** Where the student plans to work on it (for example "Library"), if set. */
+  location: string | null;
+  /** When it was archived (hidden from the dashboard, alerts and calendar), or null. */
+  archivedAt: string | null;
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;

@@ -305,6 +305,8 @@ export class LocalRepo implements HomeworkRepo {
       stage: "not_started",
       allocatedMinutes: data.allocatedMinutes,
       plannedDate: data.plannedDate,
+      location: data.location || null,
+      archivedAt: null,
       completedAt: null,
       createdAt: now,
       updatedAt: now,
@@ -329,6 +331,7 @@ export class LocalRepo implements HomeworkRepo {
     if (p.dueDate !== undefined) a.dueDate = p.dueDate;
     if (p.difficulty !== undefined) a.difficulty = p.difficulty;
     if (p.plannedDate !== undefined) a.plannedDate = p.plannedDate;
+    if (p.location !== undefined) a.location = p.location || null;
     if (p.allocatedMinutes !== undefined) a.allocatedMinutes = p.allocatedMinutes;
     if (p.stage !== undefined) {
       if (isDone(p.stage) && !isDone(a.stage)) a.completedAt = this.clock().toISOString();
@@ -360,6 +363,38 @@ export class LocalRepo implements HomeworkRepo {
       if (s.role === "parent") s.outbox.push({ ...change, studentId: a.studentId });
     }
     this.save(s);
+    return a;
+  }
+
+  async archiveAssignments(ids: string[]): Promise<number> {
+    const s = this.load();
+    this.requireStudentView(s);
+    const targets = [...new Set(ids)].map((id) => this.find(s, id)); // not_found if any is not theirs
+    // All or nothing: never archive half of a selection and then fail.
+    if (targets.some((a) => s.sessions.some((t) => t.assignmentId === a.id && isActive(t.state)))) {
+      throw new RepoError("assignment_busy");
+    }
+    const now = this.clock().toISOString();
+    let changed = 0;
+    for (const a of targets) {
+      if (a.archivedAt) continue;
+      a.archivedAt = now;
+      a.updatedAt = now;
+      changed += 1;
+    }
+    if (changed > 0) this.save(s);
+    return changed;
+  }
+
+  async restoreAssignment(id: string): Promise<Assignment> {
+    const s = this.load();
+    this.requireStudentView(s);
+    const a = this.find(s, id);
+    if (a.archivedAt) {
+      a.archivedAt = null;
+      a.updatedAt = this.clock().toISOString();
+      this.save(s);
+    }
     return a;
   }
 
@@ -414,7 +449,9 @@ export class LocalRepo implements HomeworkRepo {
   async timerStart(assignmentId: string): Promise<TimerSession> {
     const s = this.load();
     const v = this.requireStudentView(s);
-    if (!s.assignments.some((x) => x.id === assignmentId && x.studentId === v.id)) throw new RepoError("not_found");
+    const target = s.assignments.find((x) => x.id === assignmentId && x.studentId === v.id);
+    if (!target) throw new RepoError("not_found");
+    if (target.archivedAt) throw new RepoError("assignment_archived");
     if (s.sessions.some((x) => x.studentId === v.id && isActive(x.state))) throw new RepoError("timer_active_exists");
     const t = newSession(this.newId(), assignmentId, v.id, this.clock());
     s.sessions.push(t);

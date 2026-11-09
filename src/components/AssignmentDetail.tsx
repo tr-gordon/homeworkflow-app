@@ -8,7 +8,7 @@ import { estimateMinutes } from "@/lib/domain/estimates";
 import { samplesFromAssignments } from "@/lib/domain/history";
 import { activeSession, formatMinutes, totalActualSeconds } from "@/lib/domain/timer";
 import type { Profile } from "@/lib/domain/types";
-import { errorMessage, useDevice, useLoad, useNow, useToday } from "@/lib/hooks";
+import { DATA_CHANGED_EVENT, errorMessage, useDevice, useLoad, useNow, useToday } from "@/lib/hooks";
 import { AllocationEditor } from "./AllocationEditor";
 import { DifficultyText } from "./DifficultyText";
 import { AssignmentForm, type FormValues } from "./AssignmentForm";
@@ -85,6 +85,27 @@ export function AssignmentDetail({ viewer }: { viewer: Profile }) {
     }
   }
 
+  async function archive() {
+    setDeleteError(null);
+    try {
+      await repo.archiveAssignments([a.id]);
+      window.dispatchEvent(new Event(DATA_CHANGED_EVENT));
+      router.replace(backHref);
+    } catch (e) {
+      setDeleteError(errorMessage(e));
+    }
+  }
+
+  async function restore() {
+    setDeleteError(null);
+    try {
+      await repo.restoreAssignment(a.id);
+      data.reload();
+    } catch (e) {
+      setDeleteError(errorMessage(e));
+    }
+  }
+
   async function remove() {
     if (!window.confirm(`Delete "${a.title}"? Its tracked time and history will be deleted too.`)) return;
     try {
@@ -103,6 +124,7 @@ export function AssignmentDetail({ viewer }: { viewer: Profile }) {
     difficulty: a.difficulty,
     allocation: "",
     plannedDate: a.plannedDate ?? "",
+    location: a.location ?? "",
   };
   const finished = a.sessions.filter((s) => s.state === "finished").sort((x, y) => y.startedAt.localeCompare(x.startedAt));
 
@@ -115,8 +137,10 @@ export function AssignmentDetail({ viewer }: { viewer: Profile }) {
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <Chip tone="brand">{a.subject}</Chip>
-          {today ? <DueChip dueDate={a.dueDate} stage={a.stage} today={today} /> : null}
+          {today && !a.archivedAt ? <DueChip dueDate={a.dueDate} stage={a.stage} today={today} /> : null}
           <StageBadge stage={a.stage} />
+          {a.location ? <Chip>At {a.location}</Chip> : null}
+          {a.archivedAt ? <Chip tone="warn">Archived</Chip> : null}
           {!isStudent ? <Chip>{studentName}</Chip> : null}
         </div>
         <h1 className="text-2xl font-extrabold leading-tight">{a.title}</h1>
@@ -127,7 +151,18 @@ export function AssignmentDetail({ viewer }: { viewer: Profile }) {
         {a.description ? <p className="whitespace-pre-wrap">{a.description}</p> : null}
       </div>
 
-      {isStudent ? (
+      {isStudent && a.archivedAt ? (
+        <Card>
+          <h2 className="text-lg font-bold">Archived</h2>
+          <p className="mt-1 text-sm text-muted">
+            Archived {new Date(a.archivedAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}. It is hidden from your dashboard, alerts and calendar reminders. Its time and history are kept.
+          </p>
+          <Button className="mt-3" onClick={restore}>
+            Restore
+          </Button>
+          {deleteError ? <div className="mt-2"><ErrorNote>{deleteError}</ErrorNote></div> : null}
+        </Card>
+      ) : isStudent ? (
         <TimerPanel assignment={a} otherActive={otherActive} onChanged={data.reload} onFinished={setFinishedSeconds} />
       ) : (
         <Card>
@@ -225,6 +260,7 @@ export function AssignmentDetail({ viewer }: { viewer: Profile }) {
                       dueDate: input.dueDate,
                       difficulty: input.difficulty,
                       plannedDate: input.plannedDate,
+                      location: input.location ?? null,
                     });
                     data.reload();
                   }}
@@ -232,12 +268,28 @@ export function AssignmentDetail({ viewer }: { viewer: Profile }) {
               </div>
             </details>
           </Card>
-          <div className="pb-4">
-            {deleteError ? <ErrorNote>{deleteError}</ErrorNote> : null}
-            <Button variant="danger" className="mt-2 w-full" onClick={remove}>
-              Delete assignment
-            </Button>
-          </div>
+          <Card>
+            <h2 className="text-lg font-bold">Not needed any more?</h2>
+            <p className="mt-1 text-sm text-muted">
+              <strong>Archive</strong> hides it from your dashboard, alerts and calendar reminders but keeps its time and history (finished work still improves your time estimates), and you can restore it.{" "}
+              <strong>Delete</strong> removes it for good, so use it for mistakes.
+            </p>
+            {deleteError && !a.archivedAt ? <div className="mt-2"><ErrorNote>{deleteError}</ErrorNote></div> : null}
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {a.archivedAt ? (
+                <Button variant="secondary" onClick={restore}>
+                  Restore
+                </Button>
+              ) : (
+                <Button variant="secondary" onClick={archive}>
+                  Archive
+                </Button>
+              )}
+              <Button variant="danger" onClick={remove}>
+                Delete assignment
+              </Button>
+            </div>
+          </Card>
         </>
       ) : null}
     </div>

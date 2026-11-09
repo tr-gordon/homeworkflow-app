@@ -46,6 +46,7 @@ export function AlertSettingsCard({ timers }: { timers: boolean }) {
           <>
             <Toggle label="Sound" hint="A short beep when a timer alerts." checked={settings.sound} onChange={(v) => update({ sound: v })} />
             <Toggle label="Vibration" hint="Phones that support it." checked={settings.vibrate} onChange={(v) => update({ vibrate: v })} />
+            <Toggle label="Keep the screen on while timing" hint="Stops the phone sleeping so the alert rings on time. Uses more battery." checked={settings.keepAwake} onChange={(v) => update({ keepAwake: v })} />
             <Toggle label="5 minute heads-up" hint="Before the planned time is used up. Plans under 10 minutes skip it." checked={settings.warning} onChange={(v) => update({ warning: v })} />
           </>
         ) : null}
