@@ -8,7 +8,7 @@ records who and when.
 lives in the browser's `localStorage` on each person's own device, and nothing is uploaded.
 A student's device and a parent's device share homework by passing small files.
 
-- Requirements: [`PRD.md`](./PRD.md) &nbsp;·&nbsp; Design: [`architecture.md`](./architecture.md)
+- Requirements: [`PRD.md`](./PRD.md) &nbsp;·&nbsp; Design: [`architecture.md`](./architecture.md) &nbsp;·&nbsp; File samples: [`docs/file-formats`](./docs/file-formats/README.md)
 - Stack: Next.js 16 (static export), TypeScript, Tailwind CSS 4, Vitest
 
 ## Try it

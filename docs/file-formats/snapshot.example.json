@@ -1,0 +1,136 @@
+{
+  "app": "homeworkflow",
+  "kind": "snapshot",
+  "version": 1,
+  "exportedAt": "2026-11-09T16:00:00.000Z",
+  "student": {
+    "id": "student-example-0001",
+    "displayName": "Alex Example"
+  },
+  "pairingSecret": "EXAMPLE-ONLY-do-not-use-this-secret-0001",
+  "assignments": [
+    {
+      "id": "assignment-example-math",
+      "studentId": "student-example-0001",
+      "title": "Fractions worksheet",
+      "subject": "Math",
+      "description": "Pages 12 to 14, all questions.",
+      "dueDate": "2026-11-11",
+      "difficulty": 3,
+      "stage": "getting_started",
+      "allocatedMinutes": 40,
+      "plannedDate": "2026-11-10",
+      "plannedStart": null,
+      "withParent": false,
+      "location": "Library",
+      "archivedAt": null,
+      "completedAt": null,
+      "createdAt": "2026-11-05T15:00:00.000Z",
+      "updatedAt": "2026-11-09T15:30:00.000Z"
+    },
+    {
+      "id": "assignment-example-essay",
+      "studentId": "student-example-0001",
+      "title": "Essay draft",
+      "subject": "English",
+      "description": "One page on chapter 3.",
+      "dueDate": "2026-11-13",
+      "difficulty": 4,
+      "stage": "not_started",
+      "allocatedMinutes": 50,
+      "plannedDate": "2026-11-10",
+      "plannedStart": "16:30",
+      "withParent": true,
+      "location": "Home",
+      "archivedAt": null,
+      "completedAt": null,
+      "createdAt": "2026-11-05T15:00:00.000Z",
+      "updatedAt": "2026-11-09T15:30:00.000Z"
+    },
+    {
+      "id": "assignment-example-lab",
+      "studentId": "student-example-0001",
+      "title": "Lab report",
+      "subject": "Science",
+      "description": "Finished and put away.",
+      "dueDate": "2026-11-06",
+      "difficulty": 2,
+      "stage": "completed",
+      "allocatedMinutes": 25,
+      "plannedDate": null,
+      "plannedStart": null,
+      "withParent": false,
+      "location": null,
+      "archivedAt": "2026-11-08T10:00:00.000Z",
+      "completedAt": "2026-11-05T18:00:00.000Z",
+      "createdAt": "2026-11-05T15:00:00.000Z",
+      "updatedAt": "2026-11-09T15:30:00.000Z"
+    }
+  ],
+  "sessions": [
+    {
+      "id": "session-example-1",
+      "assignmentId": "assignment-example-math",
+      "studentId": "student-example-0001",
+      "state": "paused",
+      "startedAt": "2026-11-09T14:00:00.000Z",
+      "lastResumedAt": null,
+      "accumulatedSeconds": 900,
+      "finishedAt": null
+    },
+    {
+      "id": "session-example-2",
+      "assignmentId": "assignment-example-lab",
+      "studentId": "student-example-0001",
+      "state": "finished",
+      "startedAt": "2026-11-05T17:30:00.000Z",
+      "lastResumedAt": null,
+      "accumulatedSeconds": 1500,
+      "finishedAt": "2026-11-05T18:00:00.000Z"
+    }
+  ],
+  "history": [
+    {
+      "id": "history-example-1",
+      "assignmentId": "assignment-example-math",
+      "field": "allocatedMinutes",
+      "oldMinutes": null,
+      "newMinutes": 40,
+      "oldValue": null,
+      "newValue": null,
+      "changedBy": "student-example-0001",
+      "changedByName": "Alex Example",
+      "changedByRole": "student",
+      "changedAt": "2026-11-05T15:00:00.000Z",
+      "status": "applied"
+    },
+    {
+      "id": "history-example-2",
+      "assignmentId": "assignment-example-essay",
+      "field": "allocatedMinutes",
+      "oldMinutes": null,
+      "newMinutes": 40,
+      "oldValue": null,
+      "newValue": null,
+      "changedBy": "student-example-0001",
+      "changedByName": "Alex Example",
+      "changedByRole": "student",
+      "changedAt": "2026-11-06T15:00:00.000Z",
+      "status": "applied"
+    },
+    {
+      "id": "history-example-3",
+      "assignmentId": "assignment-example-essay",
+      "field": "allocatedMinutes",
+      "oldMinutes": 40,
+      "newMinutes": 50,
+      "oldValue": null,
+      "newValue": null,
+      "changedBy": "parent:Pat Parent",
+      "changedByName": "Pat Parent",
+      "changedByRole": "parent",
+      "changedAt": "2026-11-08T19:00:00.000Z",
+      "status": "applied"
+    }
+  ]
+}

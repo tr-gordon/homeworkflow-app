@@ -1,0 +1,18 @@
+{
+  "app": "homeworkflow",
+  "kind": "changes",
+  "version": 1,
+  "exportedAt": "2026-11-09T18:00:00.000Z",
+  "studentId": "student-example-0001",
+  "parentName": "Pat Parent",
+  "changes": [
+    {
+      "id": "change-example-1",
+      "assignmentId": "assignment-example-math",
+      "oldMinutes": 40,
+      "newMinutes": 50,
+      "changedAt": "2026-11-09T18:00:00.000Z"
+    }
+  ],
+  "mac": "O041dpaApyHeI2Lx69+jac8H0BbxyHXS0AHprenrA5w="
+}

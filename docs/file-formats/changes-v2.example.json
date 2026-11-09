@@ -1,0 +1,35 @@
+{
+  "app": "homeworkflow",
+  "kind": "changes",
+  "version": 2,
+  "exportedAt": "2026-11-09T18:05:00.000Z",
+  "studentId": "student-example-0001",
+  "parentName": "Pat Parent",
+  "changes": [
+    {
+      "id": "change-example-2",
+      "assignmentId": "assignment-example-math",
+      "field": "plannedStart",
+      "from": null,
+      "to": "16:30",
+      "changedAt": "2026-11-09T18:05:00.000Z"
+    },
+    {
+      "id": "change-example-3",
+      "assignmentId": "assignment-example-math",
+      "field": "withParent",
+      "from": false,
+      "to": true,
+      "changedAt": "2026-11-09T18:05:00.000Z"
+    },
+    {
+      "id": "change-example-4",
+      "assignmentId": "assignment-example-math",
+      "field": "location",
+      "from": "Library",
+      "to": "Home",
+      "changedAt": "2026-11-09T18:05:00.000Z"
+    }
+  ],
+  "mac": "ULhmnYa/bxB1GnSTsscQ+4k3z6o3EfBKElyEf9XeLf4="
+}
