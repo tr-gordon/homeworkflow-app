@@ -96,3 +96,25 @@ describe("summarizeWorkload", () => {
     expect(s.actualMinutes).toBe(15);
   });
 });
+
+describe("today's plan is ordered by start time", () => {
+  const withStart = (id: string, plannedStart: string | null, plannedDate: string | null = TODAY, dueDate = addDays(TODAY, 5)): PlanItem => ({ ...item({ id, dueDate, plannedDate }), plannedStart });
+
+  it("timed work comes first, earliest first, then the rest by due date", () => {
+    const plan = buildDailyPlan(
+      [withStart("no-time-soon", null, TODAY, addDays(TODAY, 1)), withStart("late", "17:30"), withStart("early", "09:15"), withStart("noon", "12:00"), withStart("no-time", null, TODAY, addDays(TODAY, 9))],
+      TODAY,
+    );
+    expect(plan.plannedToday.map((i) => i.id)).toEqual(["early", "noon", "late", "no-time-soon", "no-time"]);
+  });
+
+  it("a carried-over item's old start time does not jump the queue", () => {
+    const plan = buildDailyPlan([withStart("carried", "07:00", addDays(TODAY, -1)), withStart("today", "18:00")], TODAY);
+    expect(plan.plannedToday.map((i) => i.id)).toEqual(["today", "carried"]);
+  });
+
+  it("due-today work is ordered the same way", () => {
+    const due = (id: string, start: string | null): PlanItem => ({ ...item({ id, dueDate: TODAY, plannedDate: start ? TODAY : null }), plannedStart: start });
+    expect(buildDailyPlan([due("b", "17:00"), due("none", null), due("a", "15:00")], TODAY).dueToday.map((i) => i.id)).toEqual(["a", "b", "none"]);
+  });
+});

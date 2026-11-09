@@ -16,6 +16,8 @@ import { Button, ErrorNote } from "./ui";
 export function CalendarExport({ studentId, studentName, ownHomework }: { studentId: string; studentName: string; ownHomework: boolean }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  // A parent usually wants alarms only for the work they have to be there for.
+  const [onlyTogether, setOnlyTogether] = useState(!ownHomework);
 
   async function run() {
     setBusy(true);
@@ -23,10 +25,10 @@ export function CalendarExport({ studentId, studentName, ownHomework }: { studen
     try {
       const items = await getRepo().listAssignments(studentId);
       const now = new Date();
-      const ics = buildIcs(items, { now, who: ownHomework ? undefined : studentName });
-      const count = items.filter((a) => a.stage !== "completed" && !a.archivedAt).length;
+      const ics = buildIcs(items, { now, who: ownHomework ? undefined : studentName, onlyTogether: !ownHomework && onlyTogether });
+      const count = items.filter((a) => a.stage !== "completed" && !a.archivedAt && (ownHomework || !onlyTogether || a.withParent)).length;
       if (count === 0) {
-        setMsg({ ok: false, text: "No active assignments to add." });
+        setMsg({ ok: false, text: onlyTogether && !ownHomework ? "No work marked as together to add." : "No active assignments to add." });
         return;
       }
       const how = await deliverFile(icsFileName(studentName, toLocalDateString(now)), ics, "text/calendar", "HomeworkFlow reminders");
@@ -43,6 +45,12 @@ export function CalendarExport({ studentId, studentName, ownHomework }: { studen
 
   return (
     <div className="space-y-2">
+      {!ownHomework ? (
+        <label className="flex min-h-11 items-center justify-between gap-4 text-sm">
+          <span className="font-semibold">Only the work we do together</span>
+          <input type="checkbox" role="switch" checked={onlyTogether} onChange={(e) => setOnlyTogether(e.target.checked)} className="h-6 w-11 shrink-0 accent-[var(--brand)]" />
+        </label>
+      ) : null}
       <Button variant="secondary" disabled={busy} onClick={run}>
         Add reminders to my calendar{ownHomework ? "" : ` for ${studentName}`}
       </Button>

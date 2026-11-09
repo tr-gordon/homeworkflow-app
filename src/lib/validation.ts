@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TIME_RE } from "./domain/changes";
 import { STAGES } from "./domain/stages";
 
 /**
@@ -44,7 +45,19 @@ export const assignmentInputSchema = z.object({
   plannedDate: dateString.nullable(),
   /** Optional. Empty means "not set"; the data layer stores that as null. */
   location: z.string().trim().max(LIMITS.location, "Keep the place short").nullable().optional(),
+  /** HH:MM, 24 hour. Needs a plannedDate (checked where the whole assignment is known). */
+  plannedStart: z.string().regex(TIME_RE, "Use a time like 16:30").nullable().optional(),
+  withParent: z.boolean().optional(),
 });
+
+/** What a parent (or the student) can change about when and where: everything except the assignment itself. */
+export const schedulePatchSchema = z.object({
+  plannedDate: dateString.nullable().optional(),
+  plannedStart: z.string().regex(TIME_RE, "Use a time like 16:30").nullable().optional(),
+  withParent: z.boolean().optional(),
+  location: z.string().trim().max(LIMITS.location, "Keep the place short").nullable().optional(),
+});
+export type SchedulePatch = z.input<typeof schedulePatchSchema>;
 
 /** What callers pass in (location may be left out). */
 export type AssignmentInput = z.input<typeof assignmentInputSchema>;

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AllocationEditor } from "@/components/AllocationEditor";
+import { ScheduleEditor } from "@/components/ScheduleEditor";
 import { AppShell } from "@/components/AppShell";
 import { AssignmentCard } from "@/components/AssignmentCard";
 import { AttentionBanner } from "@/components/AttentionBanner";
@@ -17,7 +18,7 @@ import type { AssignmentWithTime, Profile } from "@/lib/domain/types";
 import { assignmentHref } from "@/lib/links";
 import { useDevice, useLoad, useNow, useRequireRole, useToday } from "@/lib/hooks";
 
-type Filter = "attention" | "active" | "completed" | "archived";
+type Filter = "attention" | "together" | "active" | "completed" | "archived";
 
 function Tile({ label, value, tone }: { label: string; value: React.ReactNode; tone?: "danger" | "warn" }) {
   return (
@@ -43,7 +44,7 @@ function Freshness({ studentId, name, version }: { studentId: string; name: stri
       ) : null}
       {unsent > 0 ? (
         <Link href="/share" className="block rounded-xl bg-warn-soft px-3 py-2 text-sm font-semibold text-warn">
-          {unsent} time change{unsent === 1 ? "" : "s"} not sent to {name} yet. Send them from Share.
+          {unsent} change{unsent === 1 ? "" : "s"} not sent to {name} yet. Send them from Share.
         </Link>
       ) : null}
     </div>
@@ -56,7 +57,7 @@ function StudentView({ student }: { student: Profile }) {
   const clock = useNow(30_000);
   const data = useLoad(() => repo.listAssignments(student.id), [student.id]);
   const [filter, setFilter] = useState<Filter>("attention");
-  const [editing, setEditing] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ id: string; mode: "time" | "schedule" } | null>(null);
 
   const now = useMemo(() => clock ?? new Date(0), [clock]);
   const items: AssignmentWithTime[] = useMemo(() => (data.status === "ready" ? data.data : []), [data]);
@@ -75,6 +76,8 @@ function StudentView({ student }: { student: Profile }) {
       lists: {
         attention: sort(attention),
         active: sort(active),
+        // Work to be done together, soonest first; undated work last.
+        together: [...active.filter((a) => a.withParent)].sort((a, b) => (a.plannedDate ?? "9999").localeCompare(b.plannedDate ?? "9999") || (a.plannedStart ?? "99:99").localeCompare(b.plannedStart ?? "99:99") || a.title.localeCompare(b.title)),
         completed: [...shown.filter((a) => a.stage === "completed")].sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? "")),
         archived: archivedOnly(items),
       },
@@ -88,6 +91,7 @@ function StudentView({ student }: { student: Profile }) {
   const s = view.summary;
   const filters: { id: Filter; label: string; count: number }[] = [
     { id: "attention", label: "Needs attention", count: view.lists.attention.length },
+    ...(view.lists.together.length > 0 ? [{ id: "together" as const, label: "Together", count: view.lists.together.length }] : []),
     { id: "active", label: "All active", count: view.lists.active.length },
     { id: "completed", label: "Completed", count: view.lists.completed.length },
     ...(view.lists.archived.length > 0 ? [{ id: "archived" as const, label: "Archived", count: view.lists.archived.length }] : []),
@@ -140,19 +144,33 @@ function StudentView({ student }: { student: Profile }) {
               today={today}
               now={now}
               href={assignmentHref(a.id)}
+              audience="parent"
               footer={
-                editing === a.id ? (
+                editing?.id === a.id ? (
                   <div className="space-y-2 rounded-xl bg-surface-2 p-3">
-                    <p className="text-sm font-semibold">Change planned time</p>
-                    <AllocationEditor
-                      idPrefix={`alloc-${a.id}`}
-                      value={a.allocatedMinutes}
-                      onSave={async (m) => {
-                        await repo.setAllocation(a.id, m);
-                        setEditing(null); // close; the card now shows the new planned time
-                        data.reload();
-                      }}
-                    />
+                    <p className="text-sm font-semibold">{editing.mode === "time" ? "Change planned time" : "When and where"}</p>
+                    {editing.mode === "time" ? (
+                      <AllocationEditor
+                        idPrefix={`alloc-${a.id}`}
+                        value={a.allocatedMinutes}
+                        onSave={async (m) => {
+                          await repo.setAllocation(a.id, m);
+                          setEditing(null); // close; the card now shows the new planned time
+                          data.reload();
+                        }}
+                      />
+                    ) : (
+                      <ScheduleEditor
+                        idPrefix={`sched-${a.id}`}
+                        today={today}
+                        value={{ plannedDate: a.plannedDate, plannedStart: a.plannedStart, withParent: a.withParent, location: a.location }}
+                        onSave={async (v) => {
+                          await repo.setSchedule(a.id, v);
+                          setEditing(null);
+                          data.reload();
+                        }}
+                      />
+                    )}
                     <Button variant="ghost" onClick={() => setEditing(null)}>
                       Close
                     </Button>
@@ -160,9 +178,14 @@ function StudentView({ student }: { student: Profile }) {
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {a.stage !== "completed" && !a.archivedAt ? (
-                      <Button variant="secondary" className="min-h-10 px-3 text-sm" onClick={() => setEditing(a.id)}>
-                        Change time
-                      </Button>
+                      <>
+                        <Button variant="secondary" className="min-h-10 px-3 text-sm" onClick={() => setEditing({ id: a.id, mode: "time" })}>
+                          Change time
+                        </Button>
+                        <Button variant="secondary" className="min-h-10 px-3 text-sm" onClick={() => setEditing({ id: a.id, mode: "schedule" })}>
+                          Schedule
+                        </Button>
+                      </>
                     ) : null}
                     <Link href={assignmentHref(a.id)} className="inline-flex min-h-10 items-center px-3 text-sm font-semibold text-brand-strong underline">
                       Details &amp; history

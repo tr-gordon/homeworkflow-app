@@ -12,6 +12,8 @@ import { DATA_CHANGED_EVENT, errorMessage, useDevice, useLoad, useNow, useToday 
 import { AllocationEditor } from "./AllocationEditor";
 import { DifficultyText } from "./DifficultyText";
 import { AssignmentForm, type FormValues } from "./AssignmentForm";
+import { ScheduleEditor } from "./ScheduleEditor";
+import { scheduleLabel, TogetherChip } from "./AssignmentCard";
 import { DueChip } from "./AssignmentCard";
 import { HistoryList } from "./HistoryList";
 import { StageBadge, StageSelector } from "./StageSelector";
@@ -124,6 +126,8 @@ export function AssignmentDetail({ viewer }: { viewer: Profile }) {
     difficulty: a.difficulty,
     allocation: "",
     plannedDate: a.plannedDate ?? "",
+    plannedStart: a.plannedStart ?? "",
+    withParent: a.withParent,
     location: a.location ?? "",
   };
   const finished = a.sessions.filter((s) => s.state === "finished").sort((x, y) => y.startedAt.localeCompare(x.startedAt));
@@ -140,6 +144,8 @@ export function AssignmentDetail({ viewer }: { viewer: Profile }) {
           {today && !a.archivedAt ? <DueChip dueDate={a.dueDate} stage={a.stage} today={today} /> : null}
           <StageBadge stage={a.stage} />
           {a.location ? <Chip>At {a.location}</Chip> : null}
+          {scheduleLabel(a) && a.stage !== "completed" ? <Chip tone="brand">Work: {scheduleLabel(a)}</Chip> : null}
+          {a.withParent ? <TogetherChip audience={isStudent ? "student" : "parent"} /> : null}
           {a.archivedAt ? <Chip tone="warn">Archived</Chip> : null}
           {!isStudent ? <Chip>{studentName}</Chip> : null}
         </div>
@@ -213,6 +219,27 @@ export function AssignmentDetail({ viewer }: { viewer: Profile }) {
         />
       </Card>
 
+      {!isStudent && !a.archivedAt && a.stage !== "completed" ? (
+        <Card>
+          <h2 className="text-lg font-bold">When and where</h2>
+          <p className="mb-3 mt-1 text-sm text-muted">
+            {onParentDevice
+              ? `Set the work day, start time and place, and mark work you will do together. No approval is needed. Your change is saved here; send it to ${studentName} from Share and it applies when they open the file.`
+              : `Set the work day, start time and place, and mark work you will do together. No approval is needed, and ${studentName} will see who changed it.`}
+          </p>
+          <ScheduleEditor
+            key={`${a.id}-${a.plannedDate}-${a.plannedStart}-${a.withParent}-${a.location}`}
+            idPrefix="detail-sched"
+            today={today}
+            value={{ plannedDate: a.plannedDate, plannedStart: a.plannedStart, withParent: a.withParent, location: a.location }}
+            onSave={async (v) => {
+              await repo.setSchedule(a.id, v);
+              data.reload();
+            }}
+          />
+        </Card>
+      ) : null}
+
       <Card>
         <h2 className="text-lg font-bold">Time log</h2>
         {finished.length === 0 && !activeSession(a.sessions) ? (
@@ -236,7 +263,7 @@ export function AssignmentDetail({ viewer }: { viewer: Profile }) {
       </Card>
 
       <Card>
-        <h2 className="mb-3 text-lg font-bold">Time changes</h2>
+        <h2 className="mb-3 text-lg font-bold">Changes</h2>
         <HistoryList items={history} viewerId={viewer.id} />
       </Card>
 
@@ -260,6 +287,8 @@ export function AssignmentDetail({ viewer }: { viewer: Profile }) {
                       dueDate: input.dueDate,
                       difficulty: input.difficulty,
                       plannedDate: input.plannedDate,
+                      plannedStart: input.plannedStart ?? null,
+                      withParent: input.withParent ?? false,
                       location: input.location ?? null,
                     });
                     data.reload();

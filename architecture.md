@@ -53,8 +53,8 @@ Enforced in `LocalRepo` (there is no server to enforce them):
 | Viewer | Can |
 |---|---|
 | Student view (student device) | CRUD own assignments, timers, own allocation |
-| Parent view (student device, after PIN) | Read; change allocation (applied directly) |
-| Parent device | Read imported students; change allocation (queued in the outbox) |
+| Parent view (student device, after PIN) | Read; change allocation and schedule (applied directly) |
+| Parent device | Read imported students; change allocation and schedule (queued in the outbox) |
 
 Everything else raises `forbidden`. Rows you may not read behave as if they don't exist.
 These checks guard against mistakes and casual use, not against a determined person with
@@ -130,6 +130,33 @@ device clock, so refreshes lose nothing. One active session per student is enfor
   hosts. Inline scripts are allowed because the Next.js static runtime needs them.
 - `agentRules: false` in `next.config.ts` stops `next dev` generating agent instruction files.
 
+## 4c. Field-level changes and the two file versions (H1 to H7)
+
+- A change is `{id, assignmentId, field, from, to, changedAt}` with `field` one of `allocatedMinutes`, `plannedDate`,
+  `plannedStart`, `withParent`, `location` (`domain/changes.ts`). `normalizeFieldValue` validates each field
+  (whole minutes 1 to 600, a real date, 24-hour HH:MM, a boolean, a place of at most 40 characters).
+- `sync.applyFieldChange` is the single place a change is applied, for the parent's local edit, the student's
+  import and the re-apply after a newer snapshot. It is idempotent by id, validates again (a signed file can carry
+  nonsense: `invalid`, counted, never half-applied), clamps future dates, resolves **newest-wins per field**
+  (`superseded` entries stay in the history), and refuses a start time with no work day. Writing a field keeps the rule
+  between fields (no work day clears the start time).
+- `LocalRepo.setSchedule` is the one entry point for the student and the parent. The student's own edits (form or
+  `setSchedule`) are logged field by field so the history and the conflict rule see them. A parent's change on their
+  own device also goes to the outbox; the parent view applies directly. `updateAssignment` stays student-only.
+- **Files.** Version 1 (the first release): `changes[{id, assignmentId, oldMinutes, newMinutes, changedAt}]`. Version 2:
+  `changes[{id, assignmentId, field, from, to, changedAt}]`. The signed bytes are a fixed-order array that includes
+  the version and differs in shape per version, so a signature cannot be moved between versions. The exporter writes
+  version 1 when every change is an allocation change, so a student app that has not updated yet (updates take two
+  opens) still reads it. The importer accepts both and answers `newer_version` for anything above 2. Snapshots stay at
+  version 1: the new assignment fields default safely, in both directions.
+- **Stored data.** `history` gained `field/oldValue/newValue` (defaults make old records allocation changes);
+  `outbox` entries are converted from the old shape when read, so a parent's unsent changes survive the upgrade.
+- **Alerts.** `domain/alerts.ts` holds `dueStartAlerts` (today's unfinished, unarchived, timed work; parents only for
+  together work; 10 minute lead; 10 minute grace; never stale), `combineStartAlerts` (one alert for everything due now)
+  and `startAlertKey` (moving the start time allows a re-alert). `TimerAlertsHost` runs it every 15 seconds and on
+  becoming visible, for students and parents alike. `domain/ics.ts` writes timed floating events with `-PT15M` and
+  `PT0S` alarms; midnight rollover is handled by `addMinutesLocal`.
+
 ## 7a. Place and archive (W1, C1, C2)
 
 - Two additive assignment fields, `location` (max 40) and `archivedAt`, both defaulting to null in the stored
@@ -187,6 +214,7 @@ that a phone shows it.
 | Alerts | Vitest (domain, store, repo) | Thresholds and boundaries, fire-once, late wake, attention counts, `.ics` structure/folding/escaping, damaged alert data. |
 | Guard | `scripts/check-privacy.mjs` + test | No network APIs or external URLs in app code. |
 | End to end (alerts) | Playwright with a fake clock (`scripts/ui-alerts.cjs`, manual) | Heads-up at 5 min, "time is up" at 10, no repeat after refresh, late wake, banner, badge, notification requests, settings, calendar file. |
+| End to end (schedule) | Playwright with a fake clock (`scripts/ui-schedule.cjs`, manual) | Start time and together on the form; start alerts on the student's and the parent's phone (parent only for together work, combined when simultaneous); the parent's Schedule editor; the signed v2 file; the student's history; timed calendar files. |
 | End to end (organise) | Playwright (`scripts/ui-organize.cjs`, manual) | Place chips and limit; archive overdue / completed / from the detail page; blocked by a running timer; restore; calendar without archived work and with the place; the parent's read-only Archived list. |
 | End to end (network) | Playwright (`scripts/ui-network.cjs`, manual) | A 20 s network stall does not delay opening the app (65 ms) or tapping to a new page (2.4 s), it opens offline, and a new deploy arrives by the second open. |
 | End to end (robustness) | Playwright (`scripts/ui-robust.cjs`, manual) | No `randomUUID`, no `showModal()`: still works; a screen that throws shows the recovery message and leaves the data untouched. |

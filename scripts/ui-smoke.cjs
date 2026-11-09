@@ -26,13 +26,14 @@ const tomorrow = new Date(today.getTime() + 86400000);
 
 (async () => {
   const browser = await chromium.launch();
-  const problems = { console: [], external: [] };
+  const problems = { console: [], external: [], failed: [] };
   let offlineWindow = false; // failed background prefetches while deliberately offline are expected
   const newDevice = async (name, viewport) => {
     const ctx = await browser.newContext({ viewport, deviceScaleFactor: 2, acceptDownloads: true, serviceWorkers: "allow" });
     const page = await ctx.newPage();
     page.on("console", (m) => m.type() === "error" && !offlineWindow && problems.console.push(`${name}: ${m.text()}`));
     page.on("pageerror", (e) => problems.console.push(`${name}: pageerror ${e.message}`));
+    page.on("requestfailed", (r) => problems.failed.push(`${name}: ${r.method()} ${r.url().replace(origin, "")} (${r.failure()?.errorText})`));
     page.on("request", (r) => {
       const u = r.url();
       if (!u.startsWith(origin) && !u.startsWith("data:") && !u.startsWith("blob:")) problems.external.push(u);
@@ -167,7 +168,7 @@ const tomorrow = new Date(today.getTime() + 86400000);
   await pcard.getByLabel("Planned minutes").fill("50");
   await pcard.getByRole("button", { name: "Save time" }).click();
   await pcard.getByText("Planned 50 min").waitFor();
-  check("parent changed allocation; unsent banner shown", await p.getByText(/1 time change not sent/).isVisible());
+  check("parent changed allocation; unsent banner shown", await p.getByText(/1 change not sent/).isVisible());
   await p.getByRole("link", { name: "Share", exact: true }).first().click();
   const [dl2] = await Promise.all([p.waitForEvent("download"), p.getByRole("button", { name: /Send my changes to Sam Sample/ }).click()]);
   const changesPath = path.join(OUT, dl2.suggestedFilename());
@@ -229,7 +230,7 @@ const tomorrow = new Date(today.getTime() + 86400000);
   check("data lives in localStorage under one key", keys.filter((k) => k.startsWith("homeworkflow.")).length === 1, `(${keys.join(", ")})`);
 
   check("every request stayed on this origin (nothing sent to third parties)", problems.external.length === 0, problems.external.slice(0, 3).join(" "));
-  check("no console errors or CSP violations", problems.console.length === 0, problems.console.slice(0, 3).join(" || "));
+  check("no console errors or CSP violations", problems.console.length === 0, problems.console.slice(0, 3).join(" || ") + (problems.console.length ? " [failed requests: " + problems.failed.slice(0, 4).join(" ; ") + "]" : ""));
   await browser.close();
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed. Screenshots: ${OUT}`);

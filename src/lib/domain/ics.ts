@@ -1,3 +1,4 @@
+import { DEFAULT_SESSION_MINUTES, formatClockTime, minutesOfDay } from "./changes";
 import { addDays } from "./dates";
 import { isDone } from "./stages";
 import type { Stage } from "./stages";
@@ -10,6 +11,10 @@ import type { Stage } from "./stages";
  * Times are fixed, simple choices (no time of day is stored for homework):
  *   due date   : all-day event; alarms at 5 pm the day before and 7:30 am that day
  *   work day   : all-day event on the planned date; alarm at 3:30 pm
+ *   work day with a start time: a timed event (planned minutes long, 30 if none) with alarms 15 minutes
+ *                before and at the start. Times are "floating" (no time zone), so they mean the same local time
+ *                on every phone, which is right for a family in one place.
+ *   "work together" items are marked "Together:" so a parent's calendar shows what needs them.
  * Re-importing the same file updates events (stable UID + SEQUENCE). Calendars do not
  * delete events for assignments that were removed or completed since.
  */
@@ -25,9 +30,13 @@ export interface IcsItem {
   updatedAt: string;
   location?: string | null;
   archivedAt?: string | null;
+  plannedStart?: string | null;
+  withParent?: boolean;
 }
 
 export interface IcsOptions {
+  /** Only work done together with a parent (for a parent's own calendar). */
+  onlyTogether?: boolean;
   now: Date;
   /** Shown as the calendar name and prefixed to titles when exporting someone else's homework, e.g. "Sam". */
   who?: string;
@@ -82,27 +91,41 @@ function alarm(trigger: string, description: string): string[] {
   return ["BEGIN:VALARM", "ACTION:DISPLAY", `TRIGGER:${trigger}`, `DESCRIPTION:${icsEscape(description)}`, "END:VALARM"];
 }
 
+/** A local date and time plus some minutes, carrying over midnight: ("2026-11-08", "23:45") + 30 -> ("2026-11-09", "00:15"). */
+export function addMinutesLocal(date: string, hhmm: string, minutes: number): { date: string; hhmm: string } {
+  const total = minutesOfDay(hhmm) + minutes;
+  const days = Math.floor(total / 1440);
+  const rem = ((total % 1440) + 1440) % 1440;
+  return { date: days === 0 ? date : addDays(date, days), hhmm: `${String(Math.floor(rem / 60)).padStart(2, "0")}:${String(rem % 60).padStart(2, "0")}` };
+}
+
+const icsLocal = (date: string, hhmm: string): string => `${icsDate(date)}T${hhmm.replace(":", "")}00`;
+
 function event(opts: {
   uid: string;
   stamp: string;
   item: IcsItem;
   date: string;
+  /** Start time and length make a timed event; without them the event is all-day. */
+  timed?: { hhmm: string; minutes: number };
   summary: string;
   description: string;
   alarms: string[][];
 }): string[] {
+  const end = opts.timed ? addMinutesLocal(opts.date, opts.timed.hhmm, opts.timed.minutes) : null;
   return [
     "BEGIN:VEVENT",
     `UID:${opts.uid}`,
     `DTSTAMP:${opts.stamp}`,
     `LAST-MODIFIED:${icsStamp(new Date(opts.item.updatedAt))}`,
     `SEQUENCE:${sequenceOf(opts.item.updatedAt)}`,
-    `DTSTART;VALUE=DATE:${icsDate(opts.date)}`,
-    `DTEND;VALUE=DATE:${icsDate(addDays(opts.date, 1))}`,
+    ...(opts.timed && end
+      ? [`DTSTART:${icsLocal(opts.date, opts.timed.hhmm)}`, `DTEND:${icsLocal(end.date, end.hhmm)}`]
+      : [`DTSTART;VALUE=DATE:${icsDate(opts.date)}`, `DTEND;VALUE=DATE:${icsDate(addDays(opts.date, 1))}`]),
     `SUMMARY:${icsEscape(opts.summary)}`,
     `DESCRIPTION:${icsEscape(opts.description)}`,
     ...(opts.item.location ? [`LOCATION:${icsEscape(opts.item.location)}`] : []),
-    "TRANSP:TRANSPARENT", // all-day reminders should not make the person look busy
+    opts.timed ? "TRANSP:OPAQUE" : "TRANSP:TRANSPARENT", // a timed work block is busy time; all-day reminders are not
     ...opts.alarms.flat(),
     "END:VEVENT",
   ];
@@ -123,7 +146,8 @@ export function buildIcs(items: readonly IcsItem[], opts: IcsOptions): string {
 
   for (const item of items) {
     if (isDone(item.stage) || item.archivedAt) continue; // finished or archived work gets no reminders
-    const detail = [item.subject, item.allocatedMinutes ? `planned ${item.allocatedMinutes} min` : null].filter(Boolean).join(", ");
+    if (opts.onlyTogether && !item.withParent) continue;
+    const detail = [item.subject, item.allocatedMinutes ? `planned ${item.allocatedMinutes} min` : null, item.withParent ? "together with a parent" : null].filter(Boolean).join(", ");
     lines.push(
       ...event({
         uid: `${item.id}-due@homeworkflow`,
@@ -136,15 +160,20 @@ export function buildIcs(items: readonly IcsItem[], opts: IcsOptions): string {
       }),
     );
     if (item.plannedDate) {
+      const verb = item.withParent ? "Together" : "Work on";
+      const start = item.plannedStart ?? null;
       lines.push(
         ...event({
           uid: `${item.id}-work@homeworkflow`,
           stamp,
           item,
           date: item.plannedDate,
-          summary: `${prefix}Work on: ${item.title}${item.allocatedMinutes ? ` (${item.allocatedMinutes} min)` : ""}`,
+          timed: start ? { hhmm: start, minutes: item.allocatedMinutes ?? DEFAULT_SESSION_MINUTES } : undefined,
+          summary: `${prefix}${verb}: ${item.title}${item.allocatedMinutes ? ` (${item.allocatedMinutes} min)` : ""}`,
           description: detail,
-          alarms: [alarm("PT15H30M", `${prefix}Time to work on ${item.title}`)],
+          alarms: start
+            ? [alarm("-PT15M", `${prefix}${verb} in 15 minutes (${formatClockTime(start)}): ${item.title}`), alarm("PT0S", `${prefix}Time to start: ${item.title}`)]
+            : [alarm("PT15H30M", `${prefix}${verb === "Together" ? "Time to work together on" : "Time to work on"} ${item.title}`)],
         }),
       );
     }

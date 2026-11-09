@@ -8,32 +8,37 @@ import {
 } from "../domain/timer";
 import { isDone } from "../domain/stages";
 import type { AllocationChange, Assignment, AssignmentWithTime, Profile, TimerSession } from "../domain/types";
+import { CHANGE_FIELDS, SCHEDULE_FIELDS, normalizeFieldValue, type ChangeField, type ChangeValue } from "../domain/changes";
 import {
   assignmentInputSchema,
   assignmentPatchSchema,
   displayNameSchema,
   minutesSchema,
   pinSchema,
+  schedulePatchSchema,
   type AssignmentInput,
   type AssignmentPatch,
+  type SchedulePatch,
 } from "../validation";
 import { newId as randomId } from "../ids";
 import { buildDemoState } from "./demo-seed";
 import { RepoError } from "./errors";
 import { LOCK_MS, MAX_FAILURES, PIN_ITERATIONS, hashPin, verifyPin } from "./pin";
-import { emptyState, stateSchema, type AppState } from "./state";
+import { emptyState, stateSchema, type AppState, type FieldChange } from "./state";
 import {
-  APP_ID,
-  FORMAT_VERSION,
-  applyAllocationChange,
+  applyFieldChange,
   buildSnapshot,
-  changesFileSchema,
   freezeSessions,
+  historyEntry,
   newPairingSecret,
+  newerVersionThanSupported,
+  parseChangesFile,
+  readField,
   signChanges,
   snapshotSchema,
+  toUnsignedChangesFile,
   verifyChanges,
-  type ChangesFile,
+  writeField,
 } from "./sync";
 import type { ChangesImportResult, DeviceInfo, HomeworkRepo, SnapshotImportResult, SnapshotInfo } from "./types";
 
@@ -172,19 +177,17 @@ export class LocalRepo implements HomeworkRepo {
     }
   }
 
-  private logOwnAllocation(s: AppState, a: Assignment, oldMinutes: number | null, actor: Profile): void {
-    if (oldMinutes === a.allocatedMinutes) return;
-    s.history.push({
-      id: this.newId(),
-      assignmentId: a.id,
-      oldMinutes,
-      newMinutes: a.allocatedMinutes,
-      changedBy: actor.id,
-      changedByName: actor.displayName,
-      changedByRole: actor.role,
-      changedAt: this.clock().toISOString(),
-      status: "applied",
-    });
+  /** Every change the student (or a parent in the parent view) makes is recorded, so history and "newest wins" see it. */
+  private logChange(s: AppState, a: Assignment, field: ChangeField, from: ChangeValue, to: ChangeValue, actor: Profile): void {
+    if (from === to) return;
+    s.history.push(
+      historyEntry({ id: this.newId(), assignmentId: a.id, field, from, to, changedAt: this.clock().toISOString() }, { id: actor.id, name: actor.displayName, role: actor.role }, "applied"),
+    );
+  }
+
+  /** The fields whose changes are tracked, as they are now. */
+  private snapshotOf(a: Assignment): Record<ChangeField, ChangeValue> {
+    return Object.fromEntries(CHANGE_FIELDS.map((f) => [f, readField(a, f)])) as Record<ChangeField, ChangeValue>;
   }
 
   // ---- device and identity ---------------------------------------------------
@@ -305,14 +308,17 @@ export class LocalRepo implements HomeworkRepo {
       stage: "not_started",
       allocatedMinutes: data.allocatedMinutes,
       plannedDate: data.plannedDate,
+      plannedStart: data.plannedStart ?? null,
+      withParent: data.withParent ?? false,
       location: data.location || null,
       archivedAt: null,
       completedAt: null,
       createdAt: now,
       updatedAt: now,
     };
+    if (a.plannedStart !== null && a.plannedDate === null) throw new RepoError("validation"); // a start time needs a work day
     s.assignments.push(a);
-    this.logOwnAllocation(s, a, null, v);
+    this.logChange(s, a, "allocatedMinutes", null, a.allocatedMinutes, v);
     this.save(s);
     return a;
   }
@@ -324,22 +330,74 @@ export class LocalRepo implements HomeworkRepo {
     // A parent may only change allocation (use setAllocation).
     if (v.role !== "student") throw new RepoError("forbidden");
     const p = this.parse(() => assignmentPatchSchema.parse(patch));
-    const oldMinutes = a.allocatedMinutes;
+    const before = this.snapshotOf(a);
     if (p.title !== undefined) a.title = p.title;
     if (p.subject !== undefined) a.subject = p.subject;
     if (p.description !== undefined) a.description = p.description;
     if (p.dueDate !== undefined) a.dueDate = p.dueDate;
     if (p.difficulty !== undefined) a.difficulty = p.difficulty;
-    if (p.plannedDate !== undefined) a.plannedDate = p.plannedDate;
+    if (p.plannedDate !== undefined) writeField(a, "plannedDate", p.plannedDate); // no work day means no start time
+    if (p.plannedStart !== undefined) a.plannedStart = p.plannedStart;
+    if (p.withParent !== undefined) a.withParent = p.withParent;
     if (p.location !== undefined) a.location = p.location || null;
     if (p.allocatedMinutes !== undefined) a.allocatedMinutes = p.allocatedMinutes;
+    if (a.plannedStart !== null && a.plannedDate === null) throw new RepoError("validation"); // nothing is saved on error
     if (p.stage !== undefined) {
       if (isDone(p.stage) && !isDone(a.stage)) a.completedAt = this.clock().toISOString();
       if (!isDone(p.stage)) a.completedAt = null;
       a.stage = p.stage;
     }
     a.updatedAt = this.clock().toISOString();
-    this.logOwnAllocation(s, a, oldMinutes, v);
+    for (const f of CHANGE_FIELDS) this.logChange(s, a, f, before[f], readField(a, f), v);
+    this.save(s);
+    return a;
+  }
+
+  /**
+   * The schedule: work day, start time, "work together" flag and place. The student's change applies and is logged; a
+   * parent's change in the parent view applies directly; from a parent's own device it also goes to the outbox.
+   */
+  async setSchedule(id: string, patch: SchedulePatch): Promise<Assignment> {
+    const s = this.load();
+    const v = this.viewerOf(s);
+    const a = this.find(s, id);
+    const p = this.parse(() => schedulePatchSchema.parse(patch));
+
+    // What each field should become; a start time needs a work day, and no work day clears the start time.
+    const want: Record<(typeof SCHEDULE_FIELDS)[number], ChangeValue> = {
+      plannedDate: p.plannedDate !== undefined ? p.plannedDate : a.plannedDate,
+      plannedStart: p.plannedStart !== undefined ? p.plannedStart : a.plannedStart,
+      withParent: p.withParent !== undefined ? p.withParent : a.withParent,
+      location: p.location !== undefined ? (p.location ? p.location : null) : a.location,
+    };
+    if (want.plannedDate === null) {
+      if (p.plannedStart) throw new RepoError("validation"); // asked for a start time but no work day
+      want.plannedStart = null;
+    }
+    const now = this.clock();
+    const changes: FieldChange[] = [];
+    for (const f of SCHEDULE_FIELDS) {
+      const to = normalizeFieldValue(f, want[f]);
+      if (!to.ok) throw new RepoError("validation");
+      if (to.value !== readField(a, f)) changes.push({ id: this.newId(), assignmentId: a.id, field: f, from: readField(a, f), to: to.value, changedAt: now.toISOString() });
+    }
+    if (changes.length === 0) return a;
+
+    if (v.role === "student") {
+      for (const c of changes) {
+        writeField(a, c.field, c.to);
+        this.logChange(s, a, c.field, c.from, c.to, v);
+      }
+      a.updatedAt = now.toISOString();
+    } else {
+      // The parent view and a parent's device: same rules as a changes file, newest change wins per field.
+      for (const c of changes) {
+        const outcome = applyFieldChange(s, c, { id: v.id, name: v.displayName }, now);
+        if (outcome === "invalid") throw new RepoError("validation");
+        // On a parent's own device the change must travel to the student as a file.
+        if (s.role === "parent" && (outcome === "applied" || outcome === "superseded")) s.outbox.push({ ...c, studentId: a.studentId });
+      }
+    }
     this.save(s);
     return a;
   }
@@ -353,12 +411,12 @@ export class LocalRepo implements HomeworkRepo {
       const old = a.allocatedMinutes;
       a.allocatedMinutes = value;
       a.updatedAt = this.clock().toISOString();
-      this.logOwnAllocation(s, a, old, v);
+      this.logChange(s, a, "allocatedMinutes", old, value, v);
     } else {
       if (value === a.allocatedMinutes) return a;
       const now = this.clock();
-      const change = { id: this.newId(), assignmentId: a.id, oldMinutes: a.allocatedMinutes, newMinutes: value, changedAt: now.toISOString() };
-      applyAllocationChange(s, change, { id: v.id, name: v.displayName }, now);
+      const change: FieldChange = { id: this.newId(), assignmentId: a.id, field: "allocatedMinutes", from: a.allocatedMinutes, to: value, changedAt: now.toISOString() };
+      applyFieldChange(s, change, { id: v.id, name: v.displayName }, now);
       // On a parent's own device the change must travel to the student as a file.
       if (s.role === "parent") s.outbox.push({ ...change, studentId: a.studentId });
     }
@@ -479,6 +537,7 @@ export class LocalRepo implements HomeworkRepo {
   async importSnapshot(raw: unknown): Promise<SnapshotImportResult> {
     const s = this.load();
     const role = this.requireSetUp(s);
+    if (newerVersionThanSupported(raw) !== null) throw new RepoError("newer_version");
     const parsed = snapshotSchema.safeParse(raw);
     if (!parsed.success) throw new RepoError("invalid_file");
     const snap = parsed.data;
@@ -530,7 +589,7 @@ export class LocalRepo implements HomeworkRepo {
     s.outbox = s.outbox.filter((c) => c.studentId !== snap.student.id);
     let reapplied = 0;
     for (const c of pending) {
-      const outcome = applyAllocationChange(s, c, { id: s.deviceId, name: s.displayName }, this.clock());
+      const outcome = applyFieldChange(s, c, { id: s.deviceId, name: s.displayName }, this.clock());
       if (outcome === "applied") {
         reapplied += 1;
         s.outbox.push(c);
@@ -545,40 +604,34 @@ export class LocalRepo implements HomeworkRepo {
     if (this.requireSetUp(s) !== "parent") throw new RepoError("unsupported_here");
     const known = s.snapshots[studentId];
     if (!known) throw new RepoError("not_found");
-    const changes = s.outbox
+    const changes: FieldChange[] = s.outbox
       .filter((c) => c.studentId === studentId)
-      .map((c) => ({ id: c.id, assignmentId: c.assignmentId, oldMinutes: c.oldMinutes, newMinutes: c.newMinutes, changedAt: c.changedAt }));
+      .map((c) => ({ id: c.id, assignmentId: c.assignmentId, field: c.field, from: c.from, to: c.to, changedAt: c.changedAt }));
     if (changes.length === 0) return null;
-    const unsigned: Omit<ChangesFile, "mac"> = {
-      app: APP_ID,
-      kind: "changes",
-      version: FORMAT_VERSION,
-      exportedAt: this.clock().toISOString(),
-      studentId,
-      parentName: s.displayName,
-      changes,
-    };
+    // Version 1 (allocation only) when that is all there is, so a student app that has not updated yet still reads it.
+    const unsigned = toUnsignedChangesFile({ exportedAt: this.clock().toISOString(), studentId, parentName: s.displayName, changes });
     return { ...unsigned, mac: await signChanges(unsigned, known.pairingSecret) };
   }
 
   async importChanges(raw: unknown): Promise<ChangesImportResult> {
     const s = this.load();
     if (this.requireSetUp(s) !== "student") throw new RepoError("unsupported_here");
-    const parsed = changesFileSchema.safeParse(raw);
-    if (!parsed.success) throw new RepoError("invalid_file");
-    const file = parsed.data;
+    if (newerVersionThanSupported(raw) !== null) throw new RepoError("newer_version");
+    const file = parseChangesFile(raw);
+    if (!file) throw new RepoError("invalid_file");
     const mine = s.students[0];
     if (!mine || file.studentId !== mine.id) throw new RepoError("wrong_student");
-    if (!s.pairingSecret || !(await verifyChanges(file, s.pairingSecret))) throw new RepoError("bad_signature");
+    if (!s.pairingSecret || !(await verifyChanges(file.raw, s.pairingSecret))) throw new RepoError("bad_signature");
 
-    const result: ChangesImportResult = { parentName: file.parentName, applied: 0, superseded: 0, duplicates: 0, missingAssignment: 0 };
+    const result: ChangesImportResult = { parentName: file.parentName, applied: 0, superseded: 0, duplicates: 0, missingAssignment: 0, invalid: 0 };
     const now = this.clock();
     // Oldest first so a sequence of edits is replayed in order.
     for (const c of [...file.changes].sort((a, b) => a.changedAt.localeCompare(b.changedAt))) {
-      const outcome = applyAllocationChange(s, c, { id: `parent-file:${file.parentName}`, name: file.parentName }, now);
+      const outcome = applyFieldChange(s, c, { id: `parent-file:${file.parentName}`, name: file.parentName }, now);
       if (outcome === "applied") result.applied += 1;
       else if (outcome === "superseded") result.superseded += 1;
       else if (outcome === "duplicate") result.duplicates += 1;
+      else if (outcome === "invalid") result.invalid += 1;
       else result.missingAssignment += 1;
     }
     this.save(s);

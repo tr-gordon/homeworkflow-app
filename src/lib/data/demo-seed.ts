@@ -28,13 +28,16 @@ interface Spec {
   trackedMinutes?: number;
   location?: string;
   archived?: boolean;
+  /** "HH:MM" start (needs plannedOffset) and whether it is done together with a parent. */
+  start?: string;
+  together?: boolean;
 }
 
 const SPECS: Spec[] = [
   // Alex: a mix that exercises overdue, due today, planned, unallocated and completed.
   { student: DEMO_IDS.alex, title: "Fractions worksheet", subject: "Math", description: "Problems 1 to 20, show your work.", dueOffset: -2, difficulty: 2, stage: "getting_started", allocated: 25, trackedMinutes: 10, location: "Home" },
   { student: DEMO_IDS.alex, title: "Book report: chapter 5", subject: "English", description: "One page. Main idea plus two quotes.", dueOffset: 0, difficulty: 3, stage: "halfway", allocated: 40, trackedMinutes: 20 },
-  { student: DEMO_IDS.alex, title: "Science lab write-up", subject: "Science", description: "Hypothesis, method, results.", dueOffset: 1, difficulty: 4, stage: "not_started", allocated: 60, location: "Library" },
+  { student: DEMO_IDS.alex, title: "Science lab write-up", subject: "Science", description: "Hypothesis, method, results.", dueOffset: 1, difficulty: 4, stage: "not_started", allocated: 60, location: "Library", plannedOffset: 0, start: "16:30", together: true },
   { student: DEMO_IDS.alex, title: "Spanish vocab (unit 3)", subject: "Spanish", description: "Flashcards for 25 words.", dueOffset: 2, difficulty: 2, stage: "not_started", allocated: 20, plannedOffset: 0 },
   { student: DEMO_IDS.alex, title: "History timeline poster", subject: "History", description: "Ten events with dates and pictures.", dueOffset: 6, difficulty: 3, stage: "not_started", allocated: null },
   { student: DEMO_IDS.alex, title: "Geometry practice", subject: "Math", description: "Angles and triangles, odd numbers.", dueOffset: 9, difficulty: 3, stage: "not_started", allocated: 40, plannedOffset: 5, location: "Library" },
@@ -74,6 +77,8 @@ export function buildDemoState(now: Date, deviceId: string): AppState {
       stage: s.stage,
       allocatedMinutes: s.allocated,
       plannedDate: s.plannedOffset === undefined ? null : addDays(today, s.plannedOffset),
+      plannedStart: s.start ?? null,
+      withParent: s.together ?? false,
       location: s.location ?? null,
       archivedAt: s.archived ? iso(2) : null,
       completedAt: s.stage === "completed" ? iso(Math.max(1, -s.dueOffset - 1)) : null,
@@ -84,8 +89,11 @@ export function buildDemoState(now: Date, deviceId: string): AppState {
       history.push({
         id: `demo-hist-${i + 1}`,
         assignmentId: id,
+        field: "allocatedMinutes",
         oldMinutes: null,
         newMinutes: s.allocated,
+        oldValue: null,
+        newValue: null,
         changedBy: s.student,
         changedByName: "Alex Sample",
         changedByRole: "student",
@@ -117,8 +125,11 @@ export function buildDemoState(now: Date, deviceId: string): AppState {
     history.push({
       id: "demo-hist-parent-1",
       assignmentId: lab.id,
+      field: "allocatedMinutes",
       oldMinutes: 90,
       newMinutes: 60,
+      oldValue: null,
+      newValue: null,
       changedBy: parentActor,
       changedByName: "Jordan Sample",
       changedByRole: "parent",

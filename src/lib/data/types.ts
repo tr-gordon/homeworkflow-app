@@ -1,5 +1,5 @@
 import type { AllocationChange, Assignment, AssignmentWithTime, Profile, TimerSession } from "../domain/types";
-import type { AssignmentInput, AssignmentPatch } from "../validation";
+import type { AssignmentInput, AssignmentPatch, SchedulePatch } from "../validation";
 
 export interface DeviceInfo {
   /** What this device is: a student's own, or a parent's. Chosen once at setup. */
@@ -25,6 +25,8 @@ export interface ChangesImportResult {
   superseded: number;
   duplicates: number;
   missingAssignment: number;
+  /** Changes with values that are not allowed (for example a start time with no work day); not applied. */
+  invalid: number;
 }
 
 export interface SnapshotInfo {
@@ -60,8 +62,13 @@ export interface HomeworkRepo {
   getAssignment(id: string): Promise<AssignmentWithTime | null>;
   createAssignment(input: AssignmentInput): Promise<Assignment>;
   updateAssignment(id: string, patch: AssignmentPatch): Promise<Assignment>;
-  /** Student, or parent (parent view / parent device). Recorded in allocation history. */
+  /** Student, or parent (parent view / parent device). Recorded in the change history. */
   setAllocation(id: string, minutes: number | null): Promise<Assignment>;
+  /**
+   * Student, or parent: the work day, start time, "work together" flag and place. Recorded in the change history,
+   * and from a parent's own device sent to the student as a signed changes file.
+   */
+  setSchedule(id: string, patch: SchedulePatch): Promise<Assignment>;
   deleteAssignment(id: string): Promise<void>;
   /** Student only. Hides assignments from the dashboard, alerts and calendar; data and history are kept. Returns how many changed. */
   archiveAssignments(ids: string[]): Promise<number>;

@@ -6,9 +6,9 @@ import { formatMinutes } from "@/lib/domain/timer";
 import type { Difficulty } from "@/lib/domain/types";
 import { assignmentInputSchema, LIMITS, type AssignmentInput } from "@/lib/validation";
 import { errorMessage } from "@/lib/hooks";
+import { PlacePicker } from "./PlacePicker";
 import { Button, ErrorNote, Field, inputClass } from "./ui";
 
-const PLACES = ["Home", "Library", "School"];
 const DEFAULT_SUBJECTS = ["Math", "English", "Science", "History", "Spanish", "Art", "Music", "Other"];
 
 export interface FormValues {
@@ -19,11 +19,14 @@ export interface FormValues {
   difficulty: Difficulty | null;
   allocation: string;
   plannedDate: string;
+  /** HH:MM, with a work day. */
+  plannedStart: string;
+  withParent: boolean;
   location: string;
 }
 
 export function emptyValues(): FormValues {
-  return { title: "", subject: "", description: "", dueDate: "", difficulty: null, allocation: "", plannedDate: "", location: "" };
+  return { title: "", subject: "", description: "", dueDate: "", difficulty: null, allocation: "", plannedDate: "", plannedStart: "", withParent: false, location: "" };
 }
 
 /**
@@ -60,6 +63,10 @@ export function AssignmentForm({
     e.preventDefault();
     setFormError(null);
     const allocation = v.allocation.trim() === "" ? null : Number(v.allocation);
+    if (v.plannedStart !== "" && v.plannedDate === "") {
+      setErrors({ plannedStart: "Pick a work day first" });
+      return;
+    }
     const parsed = assignmentInputSchema.safeParse({
       title: v.title,
       subject: v.subject,
@@ -68,6 +75,8 @@ export function AssignmentForm({
       difficulty: v.difficulty,
       allocatedMinutes: Number.isNaN(allocation) ? -1 : allocation,
       plannedDate: v.plannedDate === "" ? null : v.plannedDate,
+      plannedStart: v.plannedStart === "" ? null : v.plannedStart,
+      withParent: v.withParent,
       location: v.location.trim() === "" ? null : v.location.trim(),
     });
     if (!parsed.success) {
@@ -162,21 +171,20 @@ export function AssignmentForm({
         </div>
       </Field>
 
+      <Field label="Start time (optional)" htmlFor="plannedStart" error={errors.plannedStart} hint={v.plannedDate ? undefined : "Pick a work day first."}>
+        <input id="plannedStart" type="time" value={v.plannedDate ? v.plannedStart : ""} disabled={!v.plannedDate} onChange={(e) => set("plannedStart", e.target.value)} className={inputClass} />
+      </Field>
+
+      <label className="flex min-h-11 items-center justify-between gap-4">
+        <span>
+          <span className="block text-sm font-semibold">Work together with a parent</span>
+          <span className="block text-sm text-muted">Some work needs a parent there. It shows up for them too.</span>
+        </span>
+        <input type="checkbox" role="switch" aria-label="Work together with a parent" checked={v.withParent} onChange={(e) => set("withParent", e.target.checked)} className="h-6 w-11 shrink-0 accent-[var(--brand)]" />
+      </label>
+
       <Field label="Where will you work on it? (optional)" htmlFor="location" error={errors.location}>
-        <div role="group" aria-label="Common places" className="mb-2 flex flex-wrap gap-2">
-          {PLACES.map((p) => (
-            <button
-              key={p}
-              type="button"
-              aria-pressed={v.location === p}
-              onClick={() => set("location", v.location === p ? "" : p)}
-              className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${v.location === p ? "border-brand bg-brand text-brand-contrast" : "border-border bg-surface hover:bg-surface-2"}`}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
-        <input id="location" value={v.location} maxLength={LIMITS.location} onChange={(e) => set("location", e.target.value)} className={inputClass} placeholder="Or type a place" autoComplete="off" />
+        <PlacePicker id="location" value={v.location} onChange={(x) => set("location", x)} />
       </Field>
 
       {formError ? <ErrorNote>{formError}</ErrorNote> : null}

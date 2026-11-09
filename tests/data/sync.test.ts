@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { canonicalChanges, signChanges, type ChangesFile } from "@/lib/data/sync";
+import { canonicalChanges, signChanges, type ChangesFileV1 } from "@/lib/data/sync";
 import { elapsedSeconds } from "@/lib/domain/timer";
 import { advance, clock, newInput, parentDevice, rejectsWith, studentDevice } from "./helpers";
 
@@ -59,7 +59,10 @@ describe("snapshot: student to parent", () => {
     const { parent, snapshot } = await pair();
     await rejectsWith(parent.repo.importSnapshot({ hello: "world" }), "invalid_file");
     await rejectsWith(parent.repo.importSnapshot(null), "invalid_file");
-    await rejectsWith(parent.repo.importSnapshot({ ...(snapshot as object), version: 7 }), "invalid_file");
+    await rejectsWith(parent.repo.importSnapshot({ ...(snapshot as object), version: 0 }), "invalid_file");
+    await rejectsWith(parent.repo.importSnapshot({ ...(snapshot as object), kind: "changes" }), "invalid_file");
+    // A file from a newer version of the app gets its own, helpful answer instead of "not a HomeworkFlow file".
+    await rejectsWith(parent.repo.importSnapshot({ ...(snapshot as object), version: 7 }), "newer_version");
   });
 
   it("rejects a snapshot whose records belong to a different student", async () => {
@@ -155,7 +158,7 @@ describe("changes: parent to student (T2, T3)", () => {
   it("clamps a change dated far in the future to the current time", async () => {
     const { student, parent, a } = await pair();
     await parent.repo.setAllocation(a.id, 45);
-    const file = viaFile(await parent.repo.exportChanges(student.studentId)) as ChangesFile;
+    const file = viaFile(await parent.repo.exportChanges(student.studentId)) as ChangesFileV1;
     const forged = { ...file, changes: file.changes.map((c) => ({ ...c, changedAt: "2099-01-01T00:00:00.000Z" })) };
     forged.mac = await signChanges(forged, (await student.repo.exportSnapshot() as { pairingSecret: string }).pairingSecret);
     await student.repo.importChanges(forged);
@@ -183,7 +186,7 @@ describe("authenticity of changes files (bad_signature, wrong_student)", () => {
   it("rejects a file edited after it was signed", async () => {
     const { student, parent, a } = await pair();
     await parent.repo.setAllocation(a.id, 45);
-    const file = viaFile(await parent.repo.exportChanges(student.studentId)) as ChangesFile;
+    const file = viaFile(await parent.repo.exportChanges(student.studentId)) as ChangesFileV1;
     file.changes[0].newMinutes = 600; // tamper
     await rejectsWith(student.repo.importChanges(file), "bad_signature");
     expect((await student.repo.getAssignment(a.id))?.allocatedMinutes).toBe(30);
@@ -192,10 +195,10 @@ describe("authenticity of changes files (bad_signature, wrong_student)", () => {
   it("rejects a file signed with a different secret (someone who never had the snapshot)", async () => {
     const { student, parent, a } = await pair();
     await parent.repo.setAllocation(a.id, 45);
-    const file = viaFile(await parent.repo.exportChanges(student.studentId)) as ChangesFile;
+    const file = viaFile(await parent.repo.exportChanges(student.studentId)) as ChangesFileV1;
     const { mac: _mac, ...rest } = file;
     void _mac;
-    const forged: ChangesFile = { ...rest, mac: await signChanges(rest, "a-totally-different-secret-value-123") };
+    const forged: ChangesFileV1 = { ...rest, mac: await signChanges(rest, "a-totally-different-secret-value-123") };
     await rejectsWith(student.repo.importChanges(forged), "bad_signature");
   });
 
@@ -220,7 +223,7 @@ describe("authenticity of changes files (bad_signature, wrong_student)", () => {
   it("signatures cover every field (changing the parent's name invalidates the file)", async () => {
     const { student, parent, a } = await pair();
     await parent.repo.setAllocation(a.id, 45);
-    const file = viaFile(await parent.repo.exportChanges(student.studentId)) as ChangesFile;
+    const file = viaFile(await parent.repo.exportChanges(student.studentId)) as ChangesFileV1;
     await rejectsWith(student.repo.importChanges({ ...file, parentName: "Someone Else" }), "bad_signature");
     expect(canonicalChanges(file)).toContain("Pat Parent");
   });

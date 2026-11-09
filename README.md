@@ -71,6 +71,21 @@ There is no server, so nothing can wake a closed app: the in-app alerts and noti
 the app is open or when you next look at it, and calendar reminders are the way to be alerted when it is
 closed. Settings has a *Test alert* button.
 
+## Start times and working together
+
+- **Start time and "work together":** on an assignment, pick a work day, a start time, and whether a parent needs
+  to be there. It shows as "With a parent" for the student and "With you" for the parent, and a parent gets a
+  **Together** list on their dashboard.
+- **A parent can schedule:** the **Schedule** button on a parent's card (or the *When and where* card on its page)
+  changes the work day, start time, together flag and place, with no approval. From a parent's own device it travels in
+  the same signed changes file as time changes; the student's history shows who changed what and when.
+- **Alerts:** "Starting in 10 minutes" and "Time to start" while the app is open. A parent is alerted only for work to do
+  together. Two things at the same time are one alert listing both.
+- **Calendar:** work with a start time becomes a timed block with alarms 15 minutes before and at the start, so a
+  parent's phone can remind them even when the app is closed (the parent's export defaults to only the together work).
+- Parent and student apps need to be on the same version to exchange schedule changes: an app that has not updated
+  yet tells you to reopen it (a new version arrives on the second open).
+
 ## Place and archive
 
 - **Where:** each assignment can have a place (Home, Library, School or your own text). It shows on cards and the
@@ -92,7 +107,7 @@ closed. Settings has a *Test alert* button.
 | `npm run check` | The whole gate in order |
 
 End-to-end browser tests (manual, need Playwright): `scripts/ui-smoke.cjs` (two devices, files, offline),
-`scripts/ui-alerts.cjs` (alerts with a fake clock), `scripts/ui-organize.cjs` (place and archive), `scripts/ui-network.cjs` (a stalled connection must not
+`scripts/ui-alerts.cjs` (alerts with a fake clock), `scripts/ui-organize.cjs` (place and archive), `scripts/ui-schedule.cjs` (start time and together), `scripts/ui-network.cjs` (a stalled connection must not
 freeze the app; updates still arrive) and `scripts/ui-robust.cjs` (older phones, and a screen that breaks).
 Headers explain how to run them.
 Not covered by any test: a phone actually showing a system notification, the app-icon badge, and calendar

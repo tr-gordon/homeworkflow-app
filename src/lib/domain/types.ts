@@ -1,3 +1,4 @@
+import type { ChangeField, ChangeValue } from "./changes";
 import type { Stage } from "./stages";
 
 export type Role = "student" | "parent";
@@ -23,6 +24,10 @@ export interface Assignment {
   allocatedMinutes: number | null;
   /** YYYY-MM-DD the student plans to work on it, if set. */
   plannedDate: string | null;
+  /** HH:MM (24 hour) the work is planned to start; only with a plannedDate. */
+  plannedStart: string | null;
+  /** Work to do together with a parent (so the parent needs to be there). */
+  withParent: boolean;
   /** Where the student plans to work on it (for example "Library"), if set. */
   location: string | null;
   /** When it was archived (hidden from the dashboard, alerts and calendar), or null. */
@@ -49,8 +54,14 @@ export interface TimerSession {
 export interface AllocationChange {
   id: string;
   assignmentId: string;
+  /** Which field changed. Older records are all "allocatedMinutes". */
+  field: ChangeField;
+  /** For "allocatedMinutes" (kept so older readers and files still work). */
   oldMinutes: number | null;
   newMinutes: number | null;
+  /** For the schedule fields (work day, start time, together, place). */
+  oldValue: ChangeValue;
+  newValue: ChangeValue;
   /** Who made the change (a device-local id), kept with a name so history stays readable offline. */
   changedBy: string | null;
   changedByName: string | null;

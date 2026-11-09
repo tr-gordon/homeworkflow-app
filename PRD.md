@@ -43,11 +43,11 @@ files (see section 5, "Sharing").
   `completedAt` is set when the stage becomes `completed` and cleared if it moves back.
 - **A3** A parent can see all of a student's assignments (from a snapshot file, or in the
   PIN-protected parent view on the student's device). A parent cannot create, edit
-  (apart from allocation) or delete assignments, and cannot run timers.
+  (apart from allocation and the schedule, see T2 and H3), archive or delete assignments, and cannot run timers.
 
 ### Allocation and estimates
 - **T1** The student sets and changes allocated minutes at any time.
-- **T2** A parent can change allocated minutes with no approval step. On a shared
+- **T2** A parent can change allocated minutes (and the schedule, see H3) with no approval step. On a shared
   device it applies at once. From a parent's own device it travels as a changes file
   that is applied automatically when the student opens it (no accept/reject).
 - **T3** Every allocation change (including the first) is recorded: old value, new
@@ -63,6 +63,27 @@ files (see section 5, "Sharing").
   Elapsed time uses the device clock.
 - **R3** A single running stretch counts at most 4 hours (forgotten timers).
 - **R4** Finishing ends the session and offers a stage update; sessions add up.
+
+### Schedule: when, and working together
+- **H1** *Start time.* An assignment can have a planned work day and, with it, a start time (HH:MM). A start time
+  needs a work day; clearing the day clears the time.
+- **H2** *Together.* A "work together with a parent" flag marks work a parent needs to be there for. It shows as
+  "With a parent" (student) and "With you" (parent), and the parent dashboard has a **Together** list, soonest first.
+- **H3** *The parent can schedule.* A parent can change the work day, start time, together flag and place, with no
+  approval, in the parent view or from their own device (sent in the signed changes file). Everything else about an
+  assignment (title, stage, due date, difficulty, archive) stays the student's.
+- **H4** *Safe changes.* Every change is one record (field, old, new, who, when), applied newest-wins per field,
+  recorded in the history, validated again when applied (a signed file can still carry nonsense: refused and
+  counted, never half-applied), and limited to the five allowed fields.
+- **H5** *Start alerts* (while the app is open): "Starting in N minutes" 10 minutes before and "Time to start" at the
+  start (still shown up to 10 minutes late, never later). A parent is alerted only for work done together. Several
+  alerts due at once are one alert listing everything.
+- **H6** *Calendar.* Work with a start time becomes a timed block (as long as the planned time, 30 minutes if none)
+  with alarms 15 minutes before and at the start. Times are floating local times. Together work is labelled
+  "Together:". A parent's export defaults to only the work done together.
+- **H7** *Compatibility.* A parent app writes the original changes-file format (version 1) whenever only the
+  allocation changed, so a phone that has not updated yet still reads it; any schedule change uses version 2.
+  Both are accepted. A file from a newer version says to update the app.
 
 ### Organising: place and archive
 - **W1** *Where.* An optional place per assignment ("Home", "Library", "School" as quick choices, or any
@@ -168,12 +189,14 @@ finished work; place is per assignment; timer alerts get wake lock, repeat and +
 Decided without the owner (revisit if wrong):
 1. "No approval" means no accept/reject step. The student still has to open the parent's
    file; an old unopened file changes nothing.
-2. Parent edits only allocation. Planned work date stays with the student.
+2. A parent edits allocation and the schedule (work day, start time, together flag, place); everything else stays
+   the student's. (Changed in the enhancement round: it used to be allocation only.)
 3. Subject is free text. One `stage` column is the status. Hard delete.
-4. Several parents can each hold the snapshot and send changes; names come from the signed file.
-5. A student can erase their own device data (and so can anyone using that browser).
-
-6. Alert times (heads-up at 5 minutes, 5 pm / 7:30 am / 3:30 pm calendar alarms) are fixed
+4. Place is also parent-editable (part of "where and when"). Moving a work day or time does not move the
+   other field: conflicts are per field, so a late change to one never undoes a different one.
+5. Several parents can each hold the snapshot and send changes; names come from the signed file.
+6. A student can erase their own device data (and so can anyone using that browser).
+7. Alert times (heads-up at 5 minutes, 5 pm / 7:30 am / 3:30 pm calendar alarms) are fixed
    choices, since homework has no time of day. Make them settings if they don't suit.
 
 Open:

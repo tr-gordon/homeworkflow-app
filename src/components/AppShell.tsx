@@ -58,7 +58,7 @@ export function AppShell({ viewer, active, children }: { viewer: Profile; active
 
   return (
     <div className="min-h-dvh">
-      {viewer.role === "student" ? <TimerAlertsHost /> : null}
+      <TimerAlertsHost audience={viewer.role} />
       {demo ? (
         <div className="border-b border-border bg-warn-soft px-4 py-2 text-sm text-warn">
           <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2">

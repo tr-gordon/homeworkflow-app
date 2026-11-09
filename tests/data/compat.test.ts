@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { newId } from "@/lib/ids";
 import { requireSubtle } from "@/lib/data/secure";
 import { hashPin, verifyPin } from "@/lib/data/pin";
-import { signChanges, verifyChanges, type ChangesFile } from "@/lib/data/sync";
+import { signChanges, verifyChanges, type UnsignedChangesFile } from "@/lib/data/sync";
 import { RepoError } from "@/lib/data/errors";
 import { LocalRepo, MemoryStore } from "@/lib/data/local-repo";
 
@@ -58,7 +58,7 @@ describe("pages without Web Crypto (plain http)", () => {
       expect(() => requireSubtle()).toThrowError(/secure page/);
       await expect(hashPin("1234")).rejects.toMatchObject({ code: "unsupported_here" });
       await expect(verifyPin("1234", { salt: "AAAA", hash: "AAAA", iterations: 1 })).rejects.toBeInstanceOf(RepoError);
-      await expect(signChanges({} as Omit<ChangesFile, "mac">, "x")).rejects.toBeInstanceOf(RepoError);
+      await expect(signChanges({} as UnsignedChangesFile, "x")).rejects.toBeInstanceOf(RepoError);
       // Not mistaken for "the signature is wrong":
       await expect(verifyChanges({ app: "homeworkflow", kind: "changes", version: 1, exportedAt: "2026-01-01T00:00:00Z", studentId: "s", parentName: "P", changes: [], mac: "AAAAAAAAAAAAAAAAAAAAAAAA" }, "secret")).rejects.toMatchObject({ code: "unsupported_here" });
     } finally {

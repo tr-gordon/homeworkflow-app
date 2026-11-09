@@ -23,5 +23,7 @@ export function toPlanItem(a: AssignmentWithTime, now: Date): PlanItem {
     difficulty: a.difficulty,
     allocatedMinutes: a.allocatedMinutes,
     actualSeconds: totalActualSeconds(a.sessions, now),
+    plannedStart: a.plannedStart,
+    withParent: a.withParent,
   };
 }

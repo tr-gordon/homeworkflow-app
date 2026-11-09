@@ -69,6 +69,7 @@ function changesText(r: ChangesImportResult): Msg {
   if (r.superseded) parts.push(`${r.superseded} older than a newer change (recorded, not applied)`);
   if (r.duplicates) parts.push(`${r.duplicates} already imported`);
   if (r.missingAssignment) parts.push(`${r.missingAssignment} for deleted assignments`);
+  if (r.invalid) parts.push(`${r.invalid} couldn't be applied (not allowed values)`);
   return { ok: true, text: `Changes from ${r.parentName}: ${parts.join(", ")}.` };
 }
 
@@ -124,7 +125,7 @@ function StudentShare() {
 
       <Card className="space-y-3">
         <h2 className="text-lg font-bold">Get changes from a parent</h2>
-        <p className="text-sm text-muted">If your parent changed planned time, they send you a changes file. Open it here and the new times are applied. Each change shows who made it and when.</p>
+        <p className="text-sm text-muted">If your parent changed planned time or the schedule (work day, start time, place), they send you a changes file. Open it here and the changes are applied. Each change shows who made it and when.</p>
         <FilePicker
           label="Open a changes file"
           busy={busy}
@@ -202,7 +203,7 @@ function StudentCard({ student, onChanged }: { student: Profile; onChanged: () =
       >
         Send my changes to {student.displayName}
       </Button>
-      <p className="text-sm text-muted">The student opens this file in their app and the new times apply right away. Sending again is safe: changes already applied are skipped.</p>
+      <p className="text-sm text-muted">The student opens this file in their app and the changes apply right away. Sending again is safe: changes already applied are skipped.</p>
       <Message msg={msg} />
       <div className="border-t border-border pt-3">
         <p className="mb-2 text-sm text-muted">Get {student.displayName}&apos;s due dates as alarms in your own calendar (as of the data above).</p>

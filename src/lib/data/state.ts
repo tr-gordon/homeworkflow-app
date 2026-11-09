@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CHANGE_FIELDS, TIME_RE } from "../domain/changes";
 import { stageSchema, difficultySchema, minutesSchema } from "../validation";
 
 /**
@@ -23,6 +24,8 @@ export const assignmentSchema = z.object({
   allocatedMinutes: minutesSchema.nullable(),
   plannedDate: date.nullable(),
   // Added after the first release: older saved data and older files simply lack them.
+  plannedStart: z.string().regex(TIME_RE).nullable().default(null),
+  withParent: z.boolean().default(false),
   location: z.string().max(40).nullable().default(null),
   archivedAt: iso.nullable().default(null),
   completedAt: iso.nullable(),
@@ -41,11 +44,18 @@ export const sessionSchema = z.object({
   finishedAt: iso.nullable(),
 });
 
+export const changeValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+export const changeFieldSchema = z.enum(CHANGE_FIELDS);
+
 export const historySchema = z.object({
   id: z.string().min(1),
   assignmentId: z.string().min(1),
+  /** Older records predate field-level changes and are all allocation changes. */
+  field: changeFieldSchema.default("allocatedMinutes"),
   oldMinutes: z.number().int().nullable(),
   newMinutes: z.number().int().nullable(),
+  oldValue: changeValueSchema.default(null),
+  newValue: changeValueSchema.default(null),
   changedBy: z.string().nullable(),
   changedByName: z.string().nullable(),
   changedByRole: z.enum(["student", "parent", "system"]),
@@ -53,15 +63,41 @@ export const historySchema = z.object({
   status: z.enum(["applied", "superseded"]).default("applied"),
 });
 
-/** A parent-made allocation change waiting to be sent to the student as a file. */
-export const changeSchema = z.object({
+/** One change to one field of an assignment, made by a parent or the student. */
+export const fieldChangeSchema = z.object({
+  id: z.string().min(1),
+  assignmentId: z.string().min(1),
+  field: changeFieldSchema,
+  from: changeValueSchema,
+  to: changeValueSchema,
+  changedAt: iso,
+});
+export type FieldChange = z.infer<typeof fieldChangeSchema>;
+
+/** The first release's change record (allocation only). Still seen in saved data and in older changes files. */
+export const legacyChangeSchema = z.object({
   id: z.string().min(1),
   assignmentId: z.string().min(1),
   oldMinutes: z.number().int().nullable(),
   newMinutes: minutesSchema.nullable(),
   changedAt: iso,
 });
-export type AllocationChangeRecord = z.infer<typeof changeSchema>;
+export type LegacyChange = z.infer<typeof legacyChangeSchema>;
+
+export const legacyToFieldChange = (c: LegacyChange): FieldChange => ({
+  id: c.id,
+  assignmentId: c.assignmentId,
+  field: "allocatedMinutes",
+  from: c.oldMinutes,
+  to: c.newMinutes,
+  changedAt: c.changedAt,
+});
+
+/** Saved unsent changes from before field-level changes are converted when read, so nothing a parent did is lost. */
+const outboxEntrySchema = z.preprocess(
+  (v) => (v && typeof v === "object" && "newMinutes" in v ? { ...legacyToFieldChange(v as LegacyChange), studentId: (v as { studentId?: string }).studentId } : v),
+  fieldChangeSchema.extend({ studentId: z.string().min(1) }),
+);
 
 export const stateSchema = z.object({
   version: z.literal(STATE_VERSION),
@@ -80,7 +116,7 @@ export const stateSchema = z.object({
   sessions: z.array(sessionSchema),
   history: z.array(historySchema),
   /** Parent device only: changes not yet confirmed back by a newer snapshot. */
-  outbox: z.array(changeSchema.extend({ studentId: z.string().min(1) })),
+  outbox: z.array(outboxEntrySchema),
   /** Student device: this student's secret used to authenticate changes files. */
   pairingSecret: z.string().nullable(),
   /** Parent device: per imported student, when it was exported/imported and the secret it carried. */

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { getRepo } from "@/lib/data";
+import { formatClockTime } from "@/lib/domain/changes";
 import { describeDue } from "@/lib/domain/dates";
 import type { DailyPlan } from "@/lib/domain/plan";
 import { formatMinutes, totalActualSeconds } from "@/lib/domain/timer";
@@ -25,6 +26,8 @@ function Row({ a, today, now, tone, canStart, onStart, extra }: { a: Item; today
             <Chip tone="brand">{a.subject}</Chip>
             <StageBadge stage={a.stage} />
             {a.location ? <Chip>At {a.location}</Chip> : null}
+            {a.plannedStart && a.plannedDate === today ? <Chip tone="brand">{formatClockTime(a.plannedStart)}</Chip> : null}
+            {a.withParent ? <Chip tone="warn">With a parent</Chip> : null}
             {tone === "danger" ? (
               <Chip tone="danger">
                 <span aria-hidden>⚠</span> {describeDue(a.dueDate, today)}

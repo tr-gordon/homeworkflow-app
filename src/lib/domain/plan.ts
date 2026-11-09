@@ -14,6 +14,9 @@ export interface PlanItem {
   difficulty: Difficulty;
   allocatedMinutes: number | null;
   actualSeconds: number;
+  /** HH:MM, with plannedDate. */
+  plannedStart?: string | null;
+  withParent?: boolean;
 }
 
 /** Overdue = due date before today and not completed (PRD D2). */
@@ -38,6 +41,18 @@ export interface DailyPlan<T extends PlanItem> {
 }
 
 const COMING_UP_DAYS = 2;
+
+/** Today's timed work first, by start time; then everything else by due date. */
+function byStartThenDue<T extends PlanItem>(today: string) {
+  return (a: T, b: T): number => {
+    const sa = a.plannedDate === today ? (a.plannedStart ?? null) : null;
+    const sb = b.plannedDate === today ? (b.plannedStart ?? null) : null;
+    if (sa && sb && sa !== sb) return sa < sb ? -1 : 1;
+    if (sa && !sb) return -1;
+    if (!sa && sb) return 1;
+    return byDueThenDifficulty(a, b);
+  };
+}
 
 function byDueThenDifficulty<T extends PlanItem>(a: T, b: T): number {
   return (
@@ -71,8 +86,8 @@ export function buildDailyPlan<T extends PlanItem>(items: readonly T[], today: s
   }
 
   overdue.sort(byDueThenDifficulty);
-  dueToday.sort(byDueThenDifficulty);
-  plannedToday.sort(byDueThenDifficulty);
+  dueToday.sort(byStartThenDue(today));
+  plannedToday.sort(byStartThenDue(today));
   comingUp.sort(byDueThenDifficulty);
 
   const today_ = [...overdue, ...dueToday, ...plannedToday];
